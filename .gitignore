@@ -1,0 +1,43 @@
+# JavaScript dependencies and frontend output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Rust / Tauri output
+target/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/.tauri/
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials/
+secrets/
+
+# Runtime logs and local Flint data
+*.log
+/logs/
+/flint-data/
+/.flint/
+/instances/
+/profiles/
+/minecraft/
+/versions/
+/libraries/
+/assets/
+/runtimes/
+
+# Editor and operating-system files
+.idea/
+.vscode/
+*.suo
+*.user
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

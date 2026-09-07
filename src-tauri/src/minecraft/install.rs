@@ -1,0 +1,320 @@
+use super::{download, metadata::*};
+use crate::{
+    error::{AppError, Result},
+    paths::AppPaths,
+};
+use futures::{stream, StreamExt, TryStreamExt};
+use serde::Serialize;
+use std::{
+    fs::File,
+    io,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+};
+use tauri::{AppHandle, Emitter};
+
+#[derive(Clone, Debug, Serialize)]
+pub struct LauncherStatus {
+    pub phase: &'static str,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<f64>,
+}
+
+pub struct PreparedVersion {
+    pub metadata: VersionMetadata,
+    pub client_jar: PathBuf,
+    pub classpath: Vec<PathBuf>,
+    pub natives_dir: PathBuf,
+    pub logging_config: Option<PathBuf>,
+}
+
+pub fn emit(
+    app: &AppHandle,
+    phase: &'static str,
+    message: impl Into<String>,
+    progress: Option<f64>,
+) {
+    let message = message.into();
+    tracing::info!(phase, %message, "launcher status");
+    let _ = app.emit(
+        "launcher-status",
+        LauncherStatus {
+            phase,
+            message,
+            detail: None,
+            progress,
+        },
+    );
+}
+
+pub async fn prepare(app: &AppHandle, paths: &AppPaths, version: &str) -> Result<PreparedVersion> {
+    let client = reqwest::Client::builder()
+        .user_agent("Flint/0.1.0")
+        .build()?;
+    emit(app, "preparing", "Reading Mojang version metadata…", None);
+    let manifest: VersionManifest = client
+        .get(VERSION_MANIFEST_URL)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let reference = manifest
+        .versions
+        .into_iter()
+        .find(|item| item.id == version)
+        .ok_or_else(|| {
+            AppError::new(
+                "version_unavailable",
+                format!("Minecraft {version} was not found in Mojang's version manifest."),
+            )
+        })?;
+    let version_dir = paths.versions.join(version);
+    let metadata_path = version_dir.join(format!("{version}.json"));
+    download::ensure(&client, &reference.url, &reference.sha1, 0, &metadata_path).await?;
+    let metadata: VersionMetadata =
+        serde_json::from_slice(&tokio::fs::read(&metadata_path).await?)?;
+    if metadata.id != version {
+        return Err(AppError::new(
+            "version_mismatch",
+            "Mojang returned metadata for a different Minecraft version.",
+        ));
+    }
+    let metadata_java = metadata
+        .java_version
+        .as_ref()
+        .map(|java| java.major_version)
+        .ok_or_else(|| {
+            AppError::new(
+                "java_requirement_missing",
+                "Minecraft metadata did not declare a required Java version.",
+            )
+        })?;
+    if metadata_java != crate::REQUIRED_JAVA_MAJOR {
+        return Err(AppError::new(
+            "java_requirement_changed",
+            format!(
+                "Minecraft {version} now requires Java {metadata_java}, but this Flint build supports Java {}.",
+                crate::REQUIRED_JAVA_MAJOR
+            ),
+        ));
+    }
+
+    let client_jar = version_dir.join(format!("{version}.jar"));
+    emit(
+        app,
+        "downloading",
+        "Preparing Minecraft client and libraries…",
+        Some(0.05),
+    );
+    download::ensure(
+        &client,
+        &metadata.downloads.client.url,
+        &metadata.downloads.client.sha1,
+        metadata.downloads.client.size,
+        &client_jar,
+    )
+    .await?;
+
+    let natives_dir = version_dir.join("natives");
+    tokio::fs::create_dir_all(&natives_dir).await?;
+    let mut classpath = Vec::new();
+    for library in &metadata.libraries {
+        if !rules_allow(library.rules.as_deref()) {
+            continue;
+        }
+        if let Some(artifact) = &library.downloads.artifact {
+            let relative = artifact.path.as_ref().ok_or_else(|| {
+                AppError::new(
+                    "invalid_library",
+                    format!("Library {} has no path.", library.name),
+                )
+            })?;
+            let target = paths.libraries.join(relative);
+            download::ensure(
+                &client,
+                &artifact.url,
+                &artifact.sha1,
+                artifact.size,
+                &target,
+            )
+            .await?;
+            if library.name.contains(":natives-windows") {
+                let family = if library.name.starts_with("org.lwjgl:") {
+                    "lwjgl"
+                } else if library.name.starts_with("io.netty:") {
+                    "netty"
+                } else if library.name.starts_with("net.java.dev.jna:") {
+                    "jna"
+                } else {
+                    "java"
+                };
+                extract_native(&target, &natives_dir.join(family), library.extract.as_ref())?;
+            }
+            classpath.push(target);
+        }
+        if let Some(template) = library
+            .natives
+            .as_ref()
+            .and_then(|items| items.get("windows"))
+        {
+            let arch = if cfg!(target_arch = "x86_64") {
+                "64"
+            } else {
+                "32"
+            };
+            let classifier = template.replace("${arch}", arch);
+            let native = library
+                .downloads
+                .classifiers
+                .get(&classifier)
+                .ok_or_else(|| {
+                    AppError::new(
+                        "native_unavailable",
+                        format!("No {classifier} download exists for {}.", library.name),
+                    )
+                })?;
+            let relative = native.path.as_ref().ok_or_else(|| {
+                AppError::new(
+                    "invalid_library",
+                    format!("Native library {} has no path.", library.name),
+                )
+            })?;
+            let target = paths.libraries.join(relative);
+            download::ensure(&client, &native.url, &native.sha1, native.size, &target).await?;
+            extract_native(&target, &natives_dir, library.extract.as_ref())?;
+        }
+    }
+
+    let asset_index_path = paths
+        .assets
+        .join("indexes")
+        .join(format!("{}.json", metadata.asset_index.id));
+    download::ensure(
+        &client,
+        &metadata.asset_index.url,
+        &metadata.asset_index.sha1,
+        metadata.asset_index.size,
+        &asset_index_path,
+    )
+    .await?;
+    let index: AssetIndex = serde_json::from_slice(&tokio::fs::read(asset_index_path).await?)?;
+    prepare_assets(app, &client, paths, index).await?;
+
+    let logging_config = if let Some(logging) = &metadata.logging {
+        let target = paths
+            .assets
+            .join("log_configs")
+            .join(&logging.client.file.id);
+        download::ensure(
+            &client,
+            &logging.client.file.url,
+            &logging.client.file.sha1,
+            logging.client.file.size,
+            &target,
+        )
+        .await?;
+        Some(target)
+    } else {
+        None
+    };
+    Ok(PreparedVersion {
+        metadata,
+        client_jar,
+        classpath,
+        natives_dir,
+        logging_config,
+    })
+}
+
+async fn prepare_assets(
+    app: &AppHandle,
+    client: &reqwest::Client,
+    paths: &AppPaths,
+    index: AssetIndex,
+) -> Result<()> {
+    let total = index.objects.len();
+    let completed = Arc::new(AtomicUsize::new(0));
+    let objects_dir = paths.assets.join("objects");
+    let downloads = index.objects.into_values().map(|asset| {
+        let client = client.clone();
+        let app = app.clone();
+        let completed = completed.clone();
+        let hash = asset.hash;
+        let prefix = hash.get(0..2).unwrap_or("").to_string();
+        let path = objects_dir.join(&prefix).join(&hash);
+        async move {
+            download::ensure(
+                &client,
+                &format!("https://resources.download.minecraft.net/{prefix}/{}", hash),
+                &hash,
+                asset.size,
+                &path,
+            )
+            .await?;
+            let count = completed.fetch_add(1, Ordering::Relaxed) + 1;
+            if count == total || count % 100 == 0 {
+                emit(
+                    &app,
+                    "downloading",
+                    format!("Preparing assets ({count}/{total})…"),
+                    Some(0.2 + 0.75 * count as f64 / total.max(1) as f64),
+                );
+            }
+            Ok::<(), AppError>(())
+        }
+    });
+    stream::iter(downloads)
+        .buffer_unordered(12)
+        .try_collect::<Vec<_>>()
+        .await?;
+    Ok(())
+}
+
+fn extract_native(
+    archive_path: &Path,
+    destination: &Path,
+    rules: Option<&ExtractRules>,
+) -> Result<()> {
+    let file = File::open(archive_path)?;
+    let mut archive = zip::ZipArchive::new(file)?;
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index)?;
+        let Some(relative) = entry.enclosed_name() else {
+            continue;
+        };
+        if relative
+            .to_string_lossy()
+            .replace('\\', "/")
+            .starts_with("META-INF/")
+        {
+            continue;
+        }
+        if rules.is_some_and(|rules| {
+            rules.exclude.iter().any(|prefix| {
+                relative
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .starts_with(prefix)
+            })
+        }) {
+            continue;
+        }
+        if entry.is_dir() {
+            continue;
+        }
+        let output = destination.join(relative);
+        if let Some(parent) = output.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut target = File::create(output)?;
+        io::copy(&mut entry, &mut target)?;
+    }
+    Ok(())
+}
