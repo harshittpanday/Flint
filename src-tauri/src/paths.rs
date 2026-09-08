@@ -8,7 +8,9 @@ pub struct AppPaths {
     pub versions: PathBuf,
     pub libraries: PathBuf,
     pub assets: PathBuf,
+    pub metadata: PathBuf,
     pub profiles: PathBuf,
+    pub settings: PathBuf,
     pub logs: PathBuf,
 }
 
@@ -31,7 +33,9 @@ impl AppPaths {
             versions: minecraft.join("versions"),
             libraries: minecraft.join("libraries"),
             assets: minecraft.join("assets"),
+            metadata: minecraft.join("metadata"),
             profiles: root.join("profiles"),
+            settings: root.join("settings"),
             logs: root.join("logs"),
         }
     }
@@ -42,7 +46,9 @@ impl AppPaths {
             &self.versions,
             &self.libraries,
             &self.assets,
+            &self.metadata,
             &self.profiles,
+            &self.settings,
             &self.logs,
         ] {
             std::fs::create_dir_all(path)?;
@@ -52,5 +58,9 @@ impl AppPaths {
 
     pub fn instance_game(&self, id: &str) -> PathBuf {
         self.instances.join(id).join("game")
+    }
+
+    pub fn instance(&self, id: &str) -> PathBuf {
+        self.instances.join(id)
     }
 }

@@ -15,7 +15,7 @@ pub struct JavaInfo {
     pub description: String,
 }
 
-pub fn detect(required_major: u32) -> Result<JavaInfo> {
+pub fn list() -> Vec<JavaInfo> {
     let mut candidates = Vec::new();
     if let Some(home) = std::env::var_os("JAVA_HOME") {
         candidates.push(PathBuf::from(home).join("bin/java.exe"));
@@ -50,8 +50,24 @@ pub fn detect(required_major: u32) -> Result<JavaInfo> {
         }
     }
     detected.sort_by_key(|info| std::cmp::Reverse(info.major_version));
-    let selected = detected.into_iter().find(|info| info.major_version == required_major).ok_or_else(|| {
-        AppError::new("java_not_found", format!("Minecraft {0} requires a 64-bit Java {required_major} runtime. Install Temurin or Microsoft OpenJDK {required_major}, then restart Flint.", crate::SUPPORTED_VERSION))
+    detected
+}
+
+pub fn detect(required_major: u32, manual_path: Option<&Path>) -> Result<JavaInfo> {
+    let selected = if let Some(path) = manual_path {
+        inspect(path).filter(|info| info.major_version == required_major)
+    } else {
+        list()
+            .into_iter()
+            .find(|info| info.major_version == required_major)
+    }
+    .ok_or_else(|| {
+        AppError::new(
+            "java_not_found",
+            format!(
+                "This Minecraft version requires a 64-bit Java {required_major} runtime. Install Temurin or Microsoft OpenJDK {required_major}, or choose a compatible executable in Settings."
+            ),
+        )
     })?;
     tracing::info!(
         path = %selected.path.display(),
@@ -70,8 +86,11 @@ fn java_children(root: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
-fn inspect(path: &Path) -> Option<JavaInfo> {
-    let output = Command::new(path).arg("-version").output().ok()?;
+pub fn inspect(path: &Path) -> Option<JavaInfo> {
+    let output = Command::new(path)
+        .args(["-XshowSettings:properties", "-version"])
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }
@@ -88,6 +107,14 @@ fn inspect(path: &Path) -> Option<JavaInfo> {
     } else {
         first
     };
+    let is_64_bit = text.lines().any(|line| {
+        let line = line.trim().to_ascii_lowercase();
+        line.starts_with("os.arch =")
+            && (line.contains("amd64") || line.contains("x86_64") || line.contains("aarch64"))
+    });
+    if !is_64_bit {
+        return None;
+    }
     let description = text
         .lines()
         .next()
@@ -122,7 +149,8 @@ mod tests {
         let expected: u32 = expected
             .parse()
             .expect("FLINT_TEST_JAVA_MAJOR must be numeric");
-        let detected = detect(expected).expect("requested installed Java runtime was not detected");
+        let detected =
+            detect(expected, None).expect("requested installed Java runtime was not detected");
         assert_eq!(detected.major_version, expected);
         assert!(detected.path.is_file());
     }

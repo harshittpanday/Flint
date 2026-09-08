@@ -4,14 +4,18 @@ use std::collections::HashMap;
 pub const VERSION_MANIFEST_URL: &str =
     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct VersionManifest {
     pub versions: Vec<VersionReference>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VersionReference {
     pub id: String,
+    #[serde(rename = "type")]
+    pub version_type: String,
+    pub release_time: String,
     pub url: String,
     pub sha1: String,
 }
@@ -242,14 +246,11 @@ mod tests {
         let bytes = std::fs::read(path).expect("configured metadata fixture was not readable");
         let metadata: VersionMetadata = serde_json::from_slice(&bytes)
             .expect("live Mojang metadata did not match Flint's model");
-        assert_eq!(metadata.id, crate::SUPPORTED_VERSION);
-        assert_eq!(
-            metadata
-                .java_version
-                .as_ref()
-                .map(|java| java.major_version),
-            Some(crate::REQUIRED_JAVA_MAJOR)
-        );
+        assert!(!metadata.id.is_empty());
+        assert!(metadata
+            .java_version
+            .as_ref()
+            .is_some_and(|java| java.major_version >= 8));
         assert!(!metadata.libraries.is_empty());
         assert!(metadata.arguments.is_some());
     }

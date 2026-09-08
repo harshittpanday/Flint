@@ -34,6 +34,11 @@ pub struct PreparedVersion {
     pub logging_config: Option<PathBuf>,
 }
 
+pub struct ResolvedVersion {
+    pub metadata: VersionMetadata,
+    pub version_dir: PathBuf,
+}
+
 pub fn emit(
     app: &AppHandle,
     phase: &'static str,
@@ -53,18 +58,11 @@ pub fn emit(
     );
 }
 
-pub async fn prepare(app: &AppHandle, paths: &AppPaths, version: &str) -> Result<PreparedVersion> {
+pub async fn resolve(paths: &AppPaths, version: &str) -> Result<ResolvedVersion> {
     let client = reqwest::Client::builder()
-        .user_agent("Flint/0.1.0")
+        .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
         .build()?;
-    emit(app, "preparing", "Reading Mojang version metadata…", None);
-    let manifest: VersionManifest = client
-        .get(VERSION_MANIFEST_URL)
-        .send()
-        .await?
-        .error_for_status()?
-        .json()
-        .await?;
+    let manifest = super::catalog::load_manifest(paths).await?;
     let reference = manifest
         .versions
         .into_iter()
@@ -86,7 +84,7 @@ pub async fn prepare(app: &AppHandle, paths: &AppPaths, version: &str) -> Result
             "Mojang returned metadata for a different Minecraft version.",
         ));
     }
-    let metadata_java = metadata
+    metadata
         .java_version
         .as_ref()
         .map(|java| java.major_version)
@@ -96,15 +94,23 @@ pub async fn prepare(app: &AppHandle, paths: &AppPaths, version: &str) -> Result
                 "Minecraft metadata did not declare a required Java version.",
             )
         })?;
-    if metadata_java != crate::REQUIRED_JAVA_MAJOR {
-        return Err(AppError::new(
-            "java_requirement_changed",
-            format!(
-                "Minecraft {version} now requires Java {metadata_java}, but this Flint build supports Java {}.",
-                crate::REQUIRED_JAVA_MAJOR
-            ),
-        ));
-    }
+    Ok(ResolvedVersion {
+        metadata,
+        version_dir,
+    })
+}
+
+pub async fn prepare(
+    app: &AppHandle,
+    paths: &AppPaths,
+    resolved: ResolvedVersion,
+) -> Result<PreparedVersion> {
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
+        .build()?;
+    let metadata = resolved.metadata;
+    let version_dir = resolved.version_dir;
+    let version = &metadata.id;
 
     let client_jar = version_dir.join(format!("{version}.jar"));
     emit(

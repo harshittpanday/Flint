@@ -1,19 +1,23 @@
 import { useState } from "react";
-import type { Profile, ProfileInput } from "../types";
-import { SUPPORTED_VERSION } from "../types";
-import { isValidMinecraftUsername, isValidProfileName } from "../validation";
+import type { MinecraftVersion, Profile, ProfileInput } from "../types";
+import { DEFAULT_VERSION } from "../types";
+import { isValidMemoryMb, isValidMinecraftUsername, isValidProfileName } from "../validation";
 
 interface Props {
   profile?: Profile;
   disabled: boolean;
+  versions: MinecraftVersion[];
+  defaultMemoryMb: number;
   onSave: (input: ProfileInput) => Promise<void>;
   onCancel: () => void;
 }
 
-export function ProfileForm({ profile, disabled, onSave, onCancel }: Props) {
+export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSave, onCancel }: Props) {
   const [name, setName] = useState(profile?.name ?? "My Minecraft");
   const [username, setUsername] = useState(profile?.username ?? "");
   const [error, setError] = useState("");
+  const [minecraftVersion, setMinecraftVersion] = useState(profile?.minecraftVersion ?? DEFAULT_VERSION);
+  const [memoryMb, setMemoryMb] = useState(profile?.memoryMb ?? defaultMemoryMb);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -25,8 +29,20 @@ export function ProfileForm({ profile, disabled, onSave, onCancel }: Props) {
       setError("Profile name must be between 1 and 40 characters.");
       return;
     }
+    if (!isValidMemoryMb(memoryMb)) {
+      setError("Memory must be a whole number between 512 MB and 32 GB.");
+      return;
+    }
     setError("");
-    await onSave({ id: profile?.id, name: name.trim(), username, minecraftVersion: SUPPORTED_VERSION });
+    await onSave({
+      id: profile?.id,
+      name: name.trim(),
+      username,
+      minecraftVersion,
+      loader: "vanilla",
+      preset: profile?.preset ?? "vanilla",
+      memoryMb,
+    });
   }
 
   return (
@@ -41,9 +57,14 @@ export function ProfileForm({ profile, disabled, onSave, onCancel }: Props) {
       </label>
       <label>
         Minecraft version
-        <select value={SUPPORTED_VERSION} disabled>
-          <option>{SUPPORTED_VERSION} — Vanilla</option>
+        <select value={minecraftVersion} onChange={(event) => setMinecraftVersion(event.target.value)} disabled={disabled || versions.length === 0}>
+          {versions.length === 0 && <option value={minecraftVersion}>{minecraftVersion}</option>}
+          {versions.map((version) => <option key={version.id} value={version.id}>{version.id}{version.versionType === "snapshot" ? " — Snapshot" : ""}</option>)}
         </select>
+      </label>
+      <label>
+        Memory (MB)
+        <input type="number" min={512} max={32768} step={256} value={memoryMb} onChange={(event) => setMemoryMb(Number(event.target.value))} disabled={disabled} />
       </label>
       {error && <p className="field-error">{error}</p>}
       <div className="form-actions">

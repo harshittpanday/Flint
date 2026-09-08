@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidMinecraftUsername, isValidProfileName } from "./validation";
+import { isValidMemoryMb, isValidMinecraftUsername, isValidProfileName } from "./validation";
 
 describe("profile validation", () => {
   it("accepts a normal offline username", () => {
@@ -16,5 +16,11 @@ describe("profile validation", () => {
     expect(isValidProfileName("My Minecraft")).toBe(true);
     expect(isValidProfileName("   ")).toBe(false);
     expect(isValidProfileName("x".repeat(41))).toBe(false);
+  });
+
+  it("keeps profile memory within a safe supported range", () => {
+    expect(isValidMemoryMb(2048)).toBe(true);
+    expect(isValidMemoryMb(256)).toBe(false);
+    expect(isValidMemoryMb(65536)).toBe(false);
   });
 });

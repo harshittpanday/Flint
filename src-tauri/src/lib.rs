@@ -3,9 +3,10 @@ mod java;
 mod minecraft;
 mod paths;
 mod profiles;
+mod settings;
 
 use error::{AppError, Result};
-use minecraft::{arguments, install};
+use minecraft::{arguments, catalog, install};
 use paths::AppPaths;
 use profiles::{Profile, ProfileInput};
 use std::sync::{
@@ -14,8 +15,7 @@ use std::sync::{
 };
 use tauri::{AppHandle, Manager, State};
 
-pub const SUPPORTED_VERSION: &str = "26.2";
-pub const REQUIRED_JAVA_MAJOR: u32 = 25;
+pub const DEFAULT_VERSION: &str = "26.2";
 
 pub struct LauncherState {
     pub busy: AtomicBool,
@@ -37,8 +37,34 @@ fn delete_profile(paths: State<'_, AppPaths>, id: String) -> Result<()> {
 }
 
 #[tauri::command]
-fn detect_java() -> Result<java::JavaInfo> {
-    java::detect(REQUIRED_JAVA_MAJOR)
+fn duplicate_profile(paths: State<'_, AppPaths>, id: String) -> Result<Profile> {
+    profiles::duplicate(&paths, &id)
+}
+
+#[tauri::command]
+async fn list_minecraft_versions(
+    paths: State<'_, AppPaths>,
+    include_snapshots: bool,
+) -> Result<Vec<catalog::MinecraftVersion>> {
+    catalog::list(&paths, include_snapshots).await
+}
+
+#[tauri::command]
+fn get_settings(paths: State<'_, AppPaths>) -> Result<settings::LauncherSettings> {
+    settings::load(&paths)
+}
+
+#[tauri::command]
+fn save_settings(
+    paths: State<'_, AppPaths>,
+    settings: settings::LauncherSettings,
+) -> Result<settings::LauncherSettings> {
+    settings::save(&paths, settings)
+}
+
+#[tauri::command]
+fn list_java_runtimes() -> Vec<java::JavaInfo> {
+    java::list()
 }
 
 #[tauri::command]
@@ -61,7 +87,27 @@ async fn launch_minecraft(
     let shared_state = state.inner().clone();
     let result = async {
         let profile = profiles::find(&paths, &profile_id)?;
-        let java = java::detect(REQUIRED_JAVA_MAJOR)?;
+        install::emit(&app, "preparing", "Reading Mojang version metadata…", None);
+        let resolved = install::resolve(&paths, &profile.minecraft_version).await?;
+        let required_java = resolved
+            .metadata
+            .java_version
+            .as_ref()
+            .map(|version| version.major_version)
+            .ok_or_else(|| {
+                AppError::new(
+                    "java_requirement_missing",
+                    format!(
+                        "Minecraft {} does not declare its required Java runtime in Mojang metadata.",
+                        profile.minecraft_version
+                    ),
+                )
+            })?;
+        let launcher_settings = settings::load(&paths)?;
+        let manual_java = (!launcher_settings.automatic_java)
+            .then_some(launcher_settings.manual_java_path.as_deref())
+            .flatten();
+        let java = java::detect(required_java, manual_java)?;
         install::emit(
             &app,
             "preparing",
@@ -72,9 +118,18 @@ async fn launch_minecraft(
             ),
             None,
         );
-        let prepared = install::prepare(&app, &paths, &profile.minecraft_version).await?;
+        let prepared = install::prepare(&app, &paths, resolved).await?;
         let game_dir = paths.instance_game(&profile.id);
-        let launch_arguments = arguments::build(&prepared, &paths, &profile, &game_dir)?;
+        let launch_arguments = arguments::build(
+            &prepared,
+            &paths,
+            &profile,
+            &game_dir,
+            (
+                launcher_settings.resolution_width,
+                launcher_settings.resolution_height,
+            ),
+        )?;
         install::emit(
             &app,
             "launching",
@@ -89,7 +144,8 @@ async fn launch_minecraft(
             &java,
             prepared,
             launch_arguments,
-        )
+        )?;
+        profiles::mark_played(&paths, &profile.id)
     }
     .await;
     if let Err(error) = &result {
@@ -123,7 +179,11 @@ pub fn run() {
             list_profiles,
             save_profile,
             delete_profile,
-            detect_java,
+            duplicate_profile,
+            list_minecraft_versions,
+            get_settings,
+            save_settings,
+            list_java_runtimes,
             launch_minecraft
         ])
         .run(tauri::generate_context!())

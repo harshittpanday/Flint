@@ -17,6 +17,7 @@ pub fn build(
     paths: &AppPaths,
     profile: &Profile,
     game_dir: &Path,
+    resolution: (u32, u32),
 ) -> Result<LaunchArguments> {
     let classpath = prepared
         .classpath
@@ -45,6 +46,8 @@ pub fn build(
         ("${auth_session}", "0".into()),
         ("${user_type}", "legacy".into()),
         ("${version_type}", "release".into()),
+        ("${resolution_width}", resolution.0.to_string()),
+        ("${resolution_height}", resolution.1.to_string()),
         ("${user_properties}", "{}".into()),
         ("${clientid}", String::new()),
         ("${xuid}", String::new()),
@@ -97,7 +100,7 @@ pub fn build(
     {
         jvm.extend(["-cp".into(), classpath]);
     }
-    jvm.insert(0, "-Xmx2G".into());
+    jvm.insert(0, format!("-Xmx{}M", profile.memory_mb));
     if let (Some(logging), Some(path)) = (&prepared.metadata.logging, &prepared.logging_config) {
         jvm.push(
             logging
