@@ -102,29 +102,28 @@ pub async fn search(query: &str, game_version: &str) -> Result<Vec<ModProject>> 
 }
 
 pub async fn preview_preset(game_version: &str, preset: &Preset) -> Result<Vec<PresetMod>> {
-    let slugs: &[&str] = match preset {
-        Preset::Vanilla | Preset::Custom => &[],
-        Preset::Performance => &["sodium", "lithium", "entityculling"],
-        Preset::Visuals => &["iris"],
-    };
     let mut result = Vec::new();
-    for slug in slugs {
-        let project = get_project(slug).await?;
-        let version = compatible_version(slug, game_version).await?;
-        result.push(PresetMod {
-            project_id: project.id,
-            slug: project.slug,
-            title: project.title,
-            version_number: version.version_number,
-        });
+    let mut seen = std::collections::HashSet::new();
+    for slug in preset_slugs(preset) {
+        for version in resolve_versions(slug, game_version).await? {
+            if !seen.insert(version.project_id.clone()) {
+                continue;
+            }
+            let project = get_project(&version.project_id).await?;
+            result.push(PresetMod {
+                project_id: project.id,
+                slug: project.slug,
+                title: project.title,
+                version_number: version.version_number,
+            });
+        }
     }
     Ok(result)
 }
 
 pub async fn apply_preset(paths: &AppPaths, profile: &Profile) -> Result<Vec<InstalledMod>> {
-    let preview = preview_preset(&profile.minecraft_version, &profile.preset).await?;
-    for item in preview {
-        install(paths, profile, &item.project_id).await?;
+    for slug in preset_slugs(&profile.preset) {
+        install(paths, profile, slug).await?;
     }
     list_installed(paths, &profile.id)
 }
@@ -135,8 +134,24 @@ pub async fn install(
     project_id: &str,
 ) -> Result<Vec<InstalledMod>> {
     ensure_fabric(profile)?;
-    let mut queue = vec![compatible_version(project_id, &profile.minecraft_version).await?];
+    for version in resolve_versions(project_id, &profile.minecraft_version).await? {
+        install_version(paths, profile, version).await?;
+    }
+    list_installed(paths, &profile.id)
+}
+
+fn preset_slugs(preset: &Preset) -> &'static [&'static str] {
+    match preset {
+        Preset::Vanilla | Preset::Custom => &[],
+        Preset::Performance => &["sodium", "lithium", "entityculling"],
+        Preset::Visuals => &["iris"],
+    }
+}
+
+async fn resolve_versions(project_id: &str, game_version: &str) -> Result<Vec<ModVersion>> {
+    let mut queue = vec![compatible_version(project_id, game_version).await?];
     let mut visited = std::collections::HashSet::new();
+    let mut resolved = Vec::new();
     while let Some(version) = queue.pop() {
         if !visited.insert(version.project_id.clone()) {
             continue;
@@ -148,15 +163,15 @@ pub async fn install(
             let required = if let Some(version_id) = &dependency.version_id {
                 get_version(version_id).await?
             } else if let Some(project_id) = &dependency.project_id {
-                compatible_version(project_id, &profile.minecraft_version).await?
+                compatible_version(project_id, game_version).await?
             } else {
                 continue;
             };
             queue.push(required);
         }
-        install_version(paths, profile, version).await?;
+        resolved.push(version);
     }
-    list_installed(paths, &profile.id)
+    Ok(resolved)
 }
 
 pub fn list_installed(paths: &AppPaths, profile_id: &str) -> Result<Vec<InstalledMod>> {
@@ -379,7 +394,9 @@ mod tests {
         }
         let performance = preview_preset("26.2", &Preset::Performance).await.unwrap();
         let visuals = preview_preset("26.2", &Preset::Visuals).await.unwrap();
-        assert_eq!(performance.len(), 3);
-        assert_eq!(visuals.len(), 1);
+        assert!(performance.iter().any(|item| item.slug == "sodium"));
+        assert!(performance.iter().any(|item| item.slug == "lithium"));
+        assert!(performance.iter().any(|item| item.slug == "entityculling"));
+        assert!(visuals.iter().any(|item| item.slug == "iris"));
     }
 }

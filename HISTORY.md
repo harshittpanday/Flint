@@ -69,6 +69,7 @@ Entries are append-only and record what was true when work was performed.
 - The old launcher selected Java 25 before reading the chosen version. Metadata resolution now occurs first and the declared Java major drives selection.
 - Fabric launcher libraries do not all include hashes in the profile JSON. Flint retrieves the corresponding Maven SHA-1 sidecar before accepting those artifacts.
 - Mod installation paths now reject traversal and non-JAR filenames before writing or removing files.
+- Final review found snapshot visibility also admitted legacy alpha/beta entries and preset previews omitted required dependencies. The catalog now exposes only releases plus opt-in snapshots, and previews expand the same dependency graph used for installation.
 - A sandboxed Java 25 execution reported access denied; the required outside-sandbox rerun and Flint detector test both passed, identifying the failure as sandbox policy rather than a runtime defect.
 
 ### Verification and limitations

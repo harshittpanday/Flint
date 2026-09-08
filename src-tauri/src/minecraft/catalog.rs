@@ -21,13 +21,17 @@ pub async fn list(paths: &AppPaths, include_snapshots: bool) -> Result<Vec<Minec
     Ok(manifest
         .versions
         .into_iter()
-        .filter(|item| item.version_type == "release" || include_snapshots)
+        .filter(|item| is_visible(&item.version_type, include_snapshots))
         .map(|item| MinecraftVersion {
             id: item.id,
             version_type: item.version_type,
             release_time: item.release_time,
         })
         .collect())
+}
+
+fn is_visible(version_type: &str, include_snapshots: bool) -> bool {
+    version_type == "release" || (include_snapshots && version_type == "snapshot")
 }
 
 pub async fn load_manifest(paths: &AppPaths) -> Result<VersionManifest> {
@@ -77,5 +81,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(releases.len(), 1);
         assert_eq!(releases[0].id, "26.2");
+        assert!(is_visible("snapshot", true));
+        assert!(!is_visible("snapshot", false));
+        assert!(!is_visible("old_alpha", true));
     }
 }
