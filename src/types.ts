@@ -34,6 +34,11 @@ export interface MinecraftVersion {
   releaseTime: string;
 }
 
+export interface FabricLoaderVersion {
+  version: string;
+  stable: boolean;
+}
+
 export type RunningBehavior = "keepOpen" | "minimize" | "hide";
 
 export interface LauncherSettings {

@@ -136,6 +136,7 @@ export default function App() {
               <div className="profile-summary">
                 <div><span>Username</span><strong>{selected.username}</strong></div>
                 <div><span>Version</span><strong>{selected.minecraftVersion}</strong></div>
+                <div><span>Loader</span><strong>{selected.loader === "fabric" ? "Fabric " + selected.fabricLoaderVersion : "Vanilla"}</strong></div>
                 <div><span>Memory</span><strong>{selected.memoryMb} MB</strong></div>
               </div>
               <div className="profile-actions">

@@ -6,7 +6,7 @@ mod profiles;
 mod settings;
 
 use error::{AppError, Result};
-use minecraft::{arguments, catalog, install};
+use minecraft::{arguments, catalog, fabric, install};
 use paths::AppPaths;
 use profiles::{Profile, ProfileInput};
 use std::sync::{
@@ -47,6 +47,11 @@ async fn list_minecraft_versions(
     include_snapshots: bool,
 ) -> Result<Vec<catalog::MinecraftVersion>> {
     catalog::list(&paths, include_snapshots).await
+}
+
+#[tauri::command]
+async fn list_fabric_loaders(game_version: String) -> Result<Vec<fabric::FabricLoaderVersion>> {
+    fabric::list_loaders(&game_version).await
 }
 
 #[tauri::command]
@@ -118,7 +123,25 @@ async fn launch_minecraft(
             ),
             None,
         );
-        let prepared = install::prepare(&app, &paths, resolved).await?;
+        let mut prepared = install::prepare(&app, &paths, resolved).await?;
+        if profile.loader == profiles::Loader::Fabric {
+            let loader_version = profile.fabric_loader_version.as_deref().ok_or_else(|| {
+                AppError::new("fabric_version_required", "Choose a Fabric Loader version.")
+            })?;
+            install::emit(
+                &app,
+                "downloading",
+                format!("Preparing Fabric Loader {loader_version}…"),
+                Some(0.98),
+            );
+            fabric::apply(
+                &paths,
+                &profile.minecraft_version,
+                loader_version,
+                &mut prepared,
+            )
+            .await?;
+        }
         let game_dir = paths.instance_game(&profile.id);
         let launch_arguments = arguments::build(
             &prepared,
@@ -181,6 +204,7 @@ pub fn run() {
             delete_profile,
             duplicate_profile,
             list_minecraft_versions,
+            list_fabric_loaders,
             get_settings,
             save_settings,
             list_java_runtimes,

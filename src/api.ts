@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
+import type { FabricLoaderVersion, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
 export const api = {
   listProfiles: () => invoke<Profile[]>("list_profiles"),
@@ -8,6 +8,7 @@ export const api = {
   deleteProfile: (id: string) => invoke<void>("delete_profile", { id }),
   duplicateProfile: (id: string) => invoke<Profile>("duplicate_profile", { id }),
   listMinecraftVersions: (includeSnapshots: boolean) => invoke<MinecraftVersion[]>("list_minecraft_versions", { includeSnapshots }),
+  listFabricLoaders: (gameVersion: string) => invoke<FabricLoaderVersion[]>("list_fabric_loaders", { gameVersion }),
   getSettings: () => invoke<LauncherSettings>("get_settings"),
   saveSettings: (settings: LauncherSettings) => invoke<LauncherSettings>("save_settings", { settings }),
   listJavaRuntimes: () => invoke<JavaInfo[]>("list_java_runtimes"),
