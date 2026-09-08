@@ -2,6 +2,7 @@ mod error;
 mod java;
 mod minecraft;
 mod paths;
+mod presence;
 mod profiles;
 mod settings;
 
@@ -11,7 +12,7 @@ use paths::AppPaths;
 use profiles::{Profile, ProfileInput};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Arc, Mutex,
 };
 use tauri::{AppHandle, Manager, State};
 
@@ -19,6 +20,7 @@ pub const DEFAULT_VERSION: &str = "26.2";
 
 pub struct LauncherState {
     pub busy: AtomicBool,
+    pub presence: Mutex<presence::Presence>,
 }
 
 #[tauri::command]
@@ -154,6 +156,14 @@ async fn launch_minecraft(
     let shared_state = state.inner().clone();
     let result = async {
         let profile = profiles::find(&paths, &profile_id)?;
+        let launcher_settings = settings::load(&paths)?;
+        if let Ok(mut presence) = state.presence.lock() {
+            presence.update(
+                launcher_settings.discord_rich_presence,
+                "Preparing Minecraft",
+                &format!("Minecraft {}", profile.minecraft_version),
+            );
+        }
         install::emit(&app, "preparing", "Reading Mojang version metadata…", None);
         let resolved = install::resolve(&paths, &profile.minecraft_version).await?;
         let required_java = resolved
@@ -170,7 +180,6 @@ async fn launch_minecraft(
                     ),
                 )
             })?;
-        let launcher_settings = settings::load(&paths)?;
         let manual_java = (!launcher_settings.automatic_java)
             .then_some(launcher_settings.manual_java_path.as_deref())
             .flatten();
@@ -186,6 +195,13 @@ async fn launch_minecraft(
             None,
         );
         let mut prepared = install::prepare(&app, &paths, resolved).await?;
+        if let Ok(mut presence) = state.presence.lock() {
+            presence.update(
+                launcher_settings.discord_rich_presence,
+                "Downloading Minecraft",
+                &format!("Minecraft {}", profile.minecraft_version),
+            );
+        }
         if profile.loader == profiles::Loader::Fabric {
             let loader_version = profile.fabric_loader_version.as_deref().ok_or_else(|| {
                 AppError::new("fabric_version_required", "Choose a Fabric Loader version.")
@@ -221,6 +237,13 @@ async fn launch_minecraft(
             "Starting the Minecraft Java process…",
             Some(1.0),
         );
+        if let Ok(mut presence) = state.presence.lock() {
+            presence.update(
+                launcher_settings.discord_rich_presence,
+                "Launching Minecraft",
+                &format!("Minecraft {}", profile.minecraft_version),
+            );
+        }
         minecraft::process::launch(
             app.clone(),
             shared_state,
@@ -255,6 +278,7 @@ pub fn run() {
         .manage(paths)
         .manage(Arc::new(LauncherState {
             busy: AtomicBool::new(false),
+            presence: Mutex::new(presence::Presence::new()),
         }))
         .setup(move |app| {
             app.manage(guard);

@@ -131,9 +131,27 @@ pub async fn prepare(
     let natives_dir = version_dir.join("natives");
     tokio::fs::create_dir_all(&natives_dir).await?;
     let mut classpath = Vec::new();
+    let library_total = metadata
+        .libraries
+        .iter()
+        .filter(|library| rules_allow(library.rules.as_deref()))
+        .count();
+    let mut library_count = 0;
     for library in &metadata.libraries {
         if !rules_allow(library.rules.as_deref()) {
             continue;
+        }
+        library_count += 1;
+        if library_count == library_total || library_count % 10 == 0 {
+            emit(
+                app,
+                "downloading",
+                format!(
+                    "Preparing libraries ({library_count}/{library_total}): {}",
+                    library.name
+                ),
+                Some(0.05 + 0.15 * library_count as f64 / library_total.max(1) as f64),
+            );
         }
         if let Some(artifact) = &library.downloads.artifact {
             let relative = artifact.path.as_ref().ok_or_else(|| {

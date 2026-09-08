@@ -15,6 +15,29 @@ pub async fn ensure(
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
+    let mut last_error = None;
+    for attempt in 1..=3 {
+        match download_once(client, url, expected_sha1, expected_size, path).await {
+            Ok(()) => return Ok(true),
+            Err(error) => {
+                tracing::warn!(url, attempt, code = error.code, "download attempt failed");
+                last_error = Some(error);
+                if attempt < 3 {
+                    tokio::time::sleep(std::time::Duration::from_millis(250 * attempt)).await;
+                }
+            }
+        }
+    }
+    Err(last_error.expect("the retry loop always runs"))
+}
+
+async fn download_once(
+    client: &reqwest::Client,
+    url: &str,
+    expected_sha1: &str,
+    expected_size: u64,
+    path: &Path,
+) -> Result<()> {
     tracing::info!(url, target = %path.display(), "downloading file");
     let response = client.get(url).send().await?.error_for_status()?;
     let bytes = response.bytes().await?;
@@ -46,7 +69,7 @@ pub async fn ensure(
         tokio::fs::remove_file(path).await?;
     }
     tokio::fs::rename(temporary, path).await?;
-    Ok(true)
+    Ok(())
 }
 
 async fn file_is_valid(path: &Path, expected_sha1: &str, expected_size: u64) -> Result<bool> {

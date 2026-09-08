@@ -11,6 +11,9 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .48; }
 .shell { width: min(980px, calc(100% - 64px)); margin: 0 auto; padding: 46px 0; }
 header { display: flex; align-items: center; gap: 14px; margin-bottom: 34px; }
+.primary-nav { display: flex; gap: 8px; margin: -18px 0 24px; }
+.primary-nav button { border: 0; background: transparent; color: #9ba493; padding: 8px 10px; border-radius: 7px; }
+.primary-nav button:hover { color: #d6ff52; background: #d6ff520f; }
 .brand-mark { width: 47px; height: 47px; display: grid; place-items: center; background: #d6ff52; color: #11150c; font-weight: 950; font-size: 27px; transform: skew(-5deg); border-radius: 9px 4px 9px 4px; box-shadow: 0 0 40px #c7ff3240; }
 h1 { font-size: 26px; letter-spacing: .15em; line-height: 1; margin: 0; }
 header p { margin: 5px 0 0; color: #858d80; font-size: 12px; }
@@ -55,6 +58,8 @@ aside { display: grid; gap: 18px; }
 .settings-card .status-heading { margin-bottom: 16px; }
 .checkbox-row { display: flex; align-items: center; gap: 9px; }
 .checkbox-row input { width: auto; }
+.resolution-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.save-settings { width: 100%; border: 0; border-radius: 8px; background: #d6ff52; color: #14190f; padding: 10px; font-weight: 800; }
 .preset-preview { display: grid; gap: 4px; padding: 12px; border: 1px solid #3e4935; border-radius: 8px; color: #b8c3af; font-size: 11px; }
 .mods-card { margin-top: 24px; padding: 18px; box-shadow: none; }
 .mod-search { display: grid; grid-template-columns: 1fr auto; gap: 8px; }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api } from "./api";
 import { ProfileForm } from "./components/ProfileForm";
 import { ModManager } from "./components/ModManager";
@@ -42,7 +43,13 @@ export default function App() {
         setStatus([{ phase: "ready", message: loadedProfiles.length ? "Ready to play." : "Create your first offline profile." }]);
       })
       .catch((error) => setStatus([{ phase: "failed", message: readableError(error) }]));
-    api.listenStatus((entry) => setStatus((items) => [...items, entry]))
+    api.listenStatus((entry) => {
+      setStatus((items) => [...items, entry]);
+      if (entry.phase === "finished" || entry.phase === "failed") {
+        void getCurrentWindow().show();
+        void getCurrentWindow().unminimize();
+      }
+    })
       .then((unlisten) => { if (active) cleanup = unlisten; else unlisten(); })
       .catch((error) => setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]));
     return () => { active = false; cleanup?.(); };
@@ -113,6 +120,8 @@ export default function App() {
     setStatus((items) => [...items, { phase: "preparing", message: "Preparing " + selected.minecraftVersion + "…" }]);
     try {
       await api.launch(selected.id);
+      if (settings?.behaviorWhileRunning === "minimize") await getCurrentWindow().minimize();
+      if (settings?.behaviorWhileRunning === "hide") await getCurrentWindow().hide();
     } catch (error) {
       setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
     }
@@ -125,8 +134,14 @@ export default function App() {
         <div><h1>FLINT</h1><p>Instance-based Minecraft launcher</p></div>
         <span className="milestone">MILESTONE 2</span>
       </header>
+      <nav className="primary-nav" aria-label="Main navigation">
+        <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Home</button>
+        <button onClick={() => document.getElementById("profiles")?.scrollIntoView({ behavior: "smooth" })}>Profiles</button>
+        <button onClick={() => document.getElementById("mods")?.scrollIntoView({ behavior: "smooth" })}>Mods</button>
+        <button onClick={() => document.getElementById("settings")?.scrollIntoView({ behavior: "smooth" })}>Settings</button>
+      </nav>
       <div className="layout">
-        <section className="launcher-card">
+        <section className="launcher-card" id="profiles">
           <div className="card-title"><span>Offline profile</span><span className="local-badge">LOCAL</span></div>
           {editing || !selected ? (
             <ProfileForm profile={editing ? selected : undefined} disabled={busy} versions={versions}
@@ -153,8 +168,9 @@ export default function App() {
               </div>
               <button className="play-button" disabled={busy} onClick={launch}>{playLabel}<span>▶</span></button>
               <p className="offline-note">Offline identity only. Online-mode servers require authentication, which is outside this milestone.</p>
-              <ModManager key={selected.id} profile={selected} disabled={busy}
+              <div id="mods"><ModManager key={selected.id} profile={selected} disabled={busy}
                 onMessage={(message, failed) => setStatus((items) => [...items, { phase: failed ? "failed" : "ready", message }])} />
+              </div>
             </>
           )}
         </section>
@@ -165,16 +181,32 @@ export default function App() {
             <small>{javaRuntimes[0]?.description ?? "Install a compatible 64-bit Java runtime"}</small>
           </section>
           {settings && (
-            <section className="settings-card">
+            <section className="settings-card" id="settings">
               <div className="status-heading">Launcher settings</div>
               <label className="checkbox-row"><input type="checkbox" checked={settings.showSnapshots}
-                onChange={(event) => saveLauncherSettings({ ...settings, showSnapshots: event.target.checked })} /> Show snapshots</label>
+                onChange={(event) => setSettings({ ...settings, showSnapshots: event.target.checked })} /> Show snapshots</label>
+              <label className="checkbox-row"><input type="checkbox" checked={settings.discordRichPresence}
+                onChange={(event) => setSettings({ ...settings, discordRichPresence: event.target.checked })} /> Discord Rich Presence</label>
+              <label className="checkbox-row"><input type="checkbox" checked={settings.automaticJava}
+                onChange={(event) => setSettings({ ...settings, automaticJava: event.target.checked })} /> Automatic Java selection</label>
               <label>Default RAM (MB)<input type="number" min={512} max={32768} step={256} value={settings.defaultMemoryMb}
-                onChange={(event) => setSettings({ ...settings, defaultMemoryMb: Number(event.target.value) })}
-                onBlur={() => saveLauncherSettings(settings)} /></label>
-              <label>Manual Java executable<input value={settings.manualJavaPath ?? ""} placeholder="Automatic selection"
-                onChange={(event) => setSettings({ ...settings, manualJavaPath: event.target.value || undefined, automaticJava: !event.target.value })}
-                onBlur={() => saveLauncherSettings(settings)} /></label>
+                onChange={(event) => setSettings({ ...settings, defaultMemoryMb: Number(event.target.value) })} /></label>
+              <label>Manual Java executable<input value={settings.manualJavaPath ?? ""} placeholder="C:\Program Files\Java\bin\java.exe"
+                disabled={settings.automaticJava}
+                onChange={(event) => setSettings({ ...settings, manualJavaPath: event.target.value || undefined })} /></label>
+              <div className="resolution-row">
+                <label>Width<input type="number" min={640} max={7680} value={settings.resolutionWidth}
+                  onChange={(event) => setSettings({ ...settings, resolutionWidth: Number(event.target.value) })} /></label>
+                <label>Height<input type="number" min={480} max={4320} value={settings.resolutionHeight}
+                  onChange={(event) => setSettings({ ...settings, resolutionHeight: Number(event.target.value) })} /></label>
+              </div>
+              <label>While Minecraft runs<select value={settings.behaviorWhileRunning}
+                onChange={(event) => setSettings({ ...settings, behaviorWhileRunning: event.target.value as LauncherSettings["behaviorWhileRunning"] })}>
+                <option value="keepOpen">Keep Flint open</option>
+                <option value="minimize">Minimize Flint</option>
+                <option value="hide">Hide Flint</option>
+              </select></label>
+              <button className="save-settings" onClick={() => saveLauncherSettings(settings)}>Save settings</button>
             </section>
           )}
           <StatusLog entries={status} />

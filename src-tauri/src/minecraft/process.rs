@@ -54,6 +54,18 @@ pub fn launch(
         "Minecraft is running. Game output is being written to minecraft.log.",
         None,
     );
+    if let Ok(settings) = crate::settings::load(paths) {
+        if let Ok(mut presence) = state.presence.lock() {
+            presence.update(
+                settings.discord_rich_presence,
+                &format!("Playing Minecraft {}", profile.minecraft_version),
+                "In game",
+            );
+        }
+    }
+    let presence_enabled = crate::settings::load(paths)
+        .map(|settings| settings.discord_rich_presence)
+        .unwrap_or(false);
     tokio::spawn(async move {
         match child.wait().await {
             Ok(status) if status.success() => {
@@ -71,6 +83,9 @@ pub fn launch(
                 format!("Flint could not monitor Minecraft: {error}"),
                 None,
             ),
+        }
+        if let Ok(mut presence) = state.presence.lock() {
+            presence.update(presence_enabled, "Browsing Flint", "Ready to play");
         }
         state.busy.store(false, Ordering::Release);
     });
