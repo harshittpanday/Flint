@@ -4,11 +4,12 @@
 Flint/
 ├── src/                         React/TypeScript interface
 │   ├── components/
+│   │   ├── ModManager.tsx       Modrinth search/install/remove foundation
 │   │   ├── ProfileForm.tsx      Offline profile editor and validation feedback
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
-│   ├── App.tsx                  Milestone 1 interaction and launch state
-│   ├── types.ts                 Shared frontend payload shapes and supported version
+│   ├── App.tsx                  Milestone 2 navigation, settings, profiles, launch state
+│   ├── types.ts                 Shared frontend payload shapes
 │   ├── validation.ts            Testable frontend input rules
 │   └── styles.css               Flint's Windows desktop layout and visual system
 ├── src-tauri/                   Native Tauri application
@@ -17,7 +18,10 @@ Flint/
 │   ├── src/
 │   │   ├── minecraft/
 │   │   │   ├── metadata.rs      Mojang JSON models and OS/feature rule evaluation
+│   │   │   ├── catalog.rs       Cached dynamic Mojang version catalog
 │   │   │   ├── download.rs      Verified, atomic-ish cached downloads
+│   │   │   ├── fabric.rs        Fabric Meta discovery and launch-plan overlay
+│   │   │   ├── modrinth.rs      Compatible per-profile mods and presets
 │   │   │   ├── install.rs       Vanilla preparation and native extraction pipeline
 │   │   │   ├── arguments.rs     Placeholder expansion and offline launch arguments
 │   │   │   └── process.rs       Java child process and lifecycle reporting
@@ -25,6 +29,8 @@ Flint/
 │   │   ├── java.rs              Compatible Windows Java discovery/validation
 │   │   ├── paths.rs             OS app-data and cache/instance layout
 │   │   ├── profiles.rs          Validated JSON profile persistence
+│   │   ├── settings.rs          Validated launcher preferences
+│   │   ├── presence.rs          Optional privacy-safe Discord RPC adapter
 │   │   ├── lib.rs               Tauri state, commands, logging, composition root
 │   │   └── main.rs              Desktop binary entry point
 │   ├── Cargo.toml               Rust crate dependencies and targets

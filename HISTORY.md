@@ -43,3 +43,39 @@ Entries are append-only and record what was true when work was performed.
 - Mojang's live manifest reported 26.2 as the current release, with Java major 25, 131 libraries, asset index 32, modern arguments, and a logging configuration.
 - The native application compiles, but an actual Minecraft window/process launch is not verified. This machine's installed Java 21 cannot run the selected Java 25 game.
 - No claim is made that Minecraft has launched successfully.
+
+## 2026-09-08 — Milestone 2 foundation (0.2.0)
+
+### Verified Milestone 1 baseline
+
+- The project owner reported manual verification that the existing 26.2 offline profile reached the main menu, reused its cache, and connected to multiplayer before Milestone 2 began.
+- Existing logs corroborate a Java 25 Minecraft 26.2 process start on 2026-09-07, a running state, and a normal exit after 3 minutes 20 seconds. This historical evidence is not presented as a new Milestone 2 GUI test.
+
+### Implemented
+
+- Replaced the 26.2-only profile restriction with Mojang's dynamic release catalog, a one-hour manifest cache with stale-cache fallback, and optional snapshot visibility.
+- Made Java selection metadata-driven, added 64-bit runtime validation, preserved automatic selection, and added a manual Java executable setting.
+- Expanded isolated profiles with Vanilla/Fabric loader selection, Fabric Loader version, preset, per-profile RAM, last-played time, edit/delete/duplicate operations, and destructive deletion confirmation in the UI.
+- Added Fabric Meta loader discovery and launcher-profile merging, including checksum-verified Fabric Maven libraries and the Knot client entry point.
+- Added Modrinth Fabric search, compatibility-filtered installation, required dependency resolution, instance-local managed-mod manifests, listing, replacement, and removal.
+- Added live-resolved Vanilla, Performance (Sodium, Lithium, Entity Culling), Visuals (Iris plus declared required dependencies), and Custom preset flows with a pre-install preview.
+- Added launcher settings for RAM, resolution, snapshot visibility, Java selection, Discord Rich Presence, and keep/minimize/hide behavior.
+- Added privacy-safe Discord activity states and elapsed time. RPC failures are warnings and never abort launch. A real Discord client ID and registered Flint asset remain a release-time configuration requirement.
+- Added bounded three-attempt download retries and real library/asset task counts.
+- Configured release builds as Windows GUI applications, aligned version metadata at 0.2.0, and produced x64 MSI and NSIS installers.
+
+### Bugs and fixes
+
+- The old launcher selected Java 25 before reading the chosen version. Metadata resolution now occurs first and the declared Java major drives selection.
+- Fabric launcher libraries do not all include hashes in the profile JSON. Flint retrieves the corresponding Maven SHA-1 sidecar before accepting those artifacts.
+- Mod installation paths now reject traversal and non-JAR filenames before writing or removing files.
+- A sandboxed Java 25 execution reported access denied; the required outside-sandbox rerun and Flint detector test both passed, identifying the failure as sandbox policy rather than a runtime defect.
+
+### Verification and limitations
+
+- Frontend build and lint passed; Vitest passed 4 tests.
+- Cargo formatting and check passed; Rust passed 15 tests. Two network-backed live tests passed against Fabric and Modrinth; the separately filtered Mojang fixture test was a conditional no-op because no fixture path was supplied.
+- Live API validation found Fabric Loader 0.19.5 stable for 26.2 and compatible current Modrinth builds for all four preset projects.
+- Java 21.0.12.1 and Java 25.0.4.1 both executed as 64-bit Temurin runtimes; Flint's focused detector test passed for each major.
+- The optimized Tauri build passed and produced both installer formats.
+- The 0.2.0 release process launched without a console window. Native computer control was unavailable in this session, so no new vanilla or Fabric main-menu launch is claimed.

@@ -2,7 +2,7 @@
 
 ## Prerequisites and setup
 
-Use Windows 10/11, Node.js 20.19+, npm, stable Rust with the MSVC target, Visual Studio 2022 C++ Build Tools plus a Windows SDK, WebView2, and Java 25.
+Use Windows 10/11, Node.js 20.19+, npm, stable Rust with the MSVC target, Visual Studio 2022 C++ Build Tools plus a Windows SDK, WebView2, and the 64-bit Java majors required by the Minecraft versions under test.
 
 ```powershell
 npm install
@@ -20,9 +20,12 @@ npm test
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo check --manifest-path src-tauri/Cargo.toml
 cargo test --manifest-path src-tauri/Cargo.toml
+npm run tauri build
 ```
 
 Use `cargo clippy --all-targets --all-features -- -D warnings` when the native toolchain is available. Launcher changes should also be exercised from a clean throwaway app-data/cache state without deleting a contributor's real instance data.
+
+Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and Modrinth compatibility tests. Release builds that enable Discord Rich Presence must set `FLINT_DISCORD_CLIENT_ID` to the reviewed Flint Discord Application ID and configure the matching `flint` image asset.
 
 ## Conventions
 
@@ -34,5 +37,6 @@ Use `cargo clippy --all-targets --all-features -- -D warnings` when the native t
 - Keep TypeScript strict, components small, and validation independently testable.
 - Never log or commit credentials, tokens, secrets, runtime instances, or downloaded Minecraft content.
 - Preserve instance isolation. Shared cache data must be immutable or safely replaceable.
+- Create a tested Conventional Commit after each meaningful working unit. Never amend shared history or push on a contributor's behalf.
 
 Update README, TREE, ARCHITECTURE, SECURITY, and the append-only HISTORY when behavior or boundaries change. Update CHECKBOX only after the relevant verification passes; code existing is not sufficient evidence that the behavior works.

@@ -14,7 +14,8 @@
 
 - [x] Define typed frontend/backend IPC payloads
 - [x] Prevent duplicate launches in launcher state
-- [ ] Verify complete launcher pipeline with an observed game launch
+- [x] Verify Milestone 1 launcher pipeline with an observed Minecraft 26.2 game launch (project-owner verification)
+- [ ] Re-verify the complete launcher pipeline after Milestone 2 changes
 
 ## Minecraft Installation
 
@@ -22,31 +23,34 @@
 - [x] Implement client, library, asset, native, and logging downloads
 - [x] Implement SHA-1 and size validation with cache reuse
 - [x] Implement bounded asset download concurrency
-- [ ] Verify clean first-run installation of Minecraft 26.2
-- [ ] Add resumable downloads and retry policy
+- [x] Verify clean first-run installation and second-run cache reuse for Minecraft 26.2 (project-owner verification)
+- [x] Add bounded download retry policy
+- [ ] Add resumable downloads
 
 ## Java Runtime
 
 - [x] Detect and execute installed Java candidates
-- [x] Enforce Java 25 with actionable errors
+- [x] Select an installed 64-bit Java major from Mojang version metadata with actionable errors
+- [x] Support a validated manual Java executable override
 - [ ] Add Flint-managed Java runtimes
 
 ## Profiles
 
-- [x] Create, edit, select, validate, and persist offline profiles
+- [x] Create, edit, duplicate, delete, select, validate, and persist offline profiles
 - [x] Generate stable profile IDs and offline player UUIDs
-- [ ] Expose profile deletion in the UI
+- [x] Require confirmation before profile/instance deletion
 
 ## Instances
 
 - [x] Create isolated per-profile game directories
 - [x] Share immutable libraries/assets centrally
-- [ ] Add instance settings and memory controls
+- [x] Add per-instance loader, preset, memory, and last-played metadata
 - [ ] Add export/import
 
 ## Fabric
 
-- [ ] Fabric loader support
+- [x] Fabric metadata, compatible version selection, verified libraries, and launch-plan integration
+- [ ] Observed Fabric Minecraft launch
 
 ## Forge
 
@@ -58,8 +62,9 @@
 
 ## Mods
 
-- [ ] Mod search and installation
-- [ ] Dependency resolution and updates
+- [x] Compatibility-filtered Modrinth search, install, list, replacement, and removal foundation
+- [x] Required dependency resolution and per-profile managed-mod manifests
+- [ ] Mod update and conflict UI
 
 ## Resource Packs / Shaders
 
@@ -93,14 +98,17 @@
 
 ## Discord Rich Presence
 
-- [ ] Optional local rich presence
+- [x] Failure-isolated, privacy-safe presence adapter and disable setting
+- [ ] Live Discord activity verification with a configured Flint application ID/assets
 
 ## UI/UX
 
 - [x] Usable profile, version, Play, runtime, and status interface
 - [x] Busy/disabled Play states and understandable failures
+- [x] Home/Profile/Mods/Settings navigation and obvious Play action
 - [ ] Accessibility and keyboard-flow audit
 - [ ] Download speed, byte progress, and cancellation
+- [x] Real current-library and completed/total task progress
 
 ## Testing
 
@@ -110,17 +118,20 @@
 - [x] Rust formatting check
 - [x] Rust compile check
 - [x] Rust unit tests
-- [ ] Clean-cache installation test
-- [ ] Observed Minecraft launch and normal exit test
+- [x] Live Fabric and Modrinth 26.2 metadata compatibility tests
+- [x] Historical clean-cache and normal-exit evidence for the Milestone 1 baseline
+- [ ] Post-Milestone 2 observed vanilla main-menu and normal-exit test
+- [ ] Observed Fabric main-menu and normal-exit test
 
 ## Packaging
 
 - [x] Build debug Tauri desktop executable
-- [ ] Tauri installer build
+- [x] Optimized Windows GUI executable with no release console subsystem
+- [x] Tauri x64 MSI and NSIS installer builds
 - [ ] Code signing
 - [ ] Windows install/uninstall smoke test
 
 ## Release
 
-- [ ] Milestone 1 release candidate
+- [x] Milestone 1 launcher baseline manually verified by the project owner
 - [ ] Publish a release

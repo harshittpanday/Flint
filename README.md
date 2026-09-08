@@ -4,24 +4,29 @@ Flint is a Windows-first desktop launcher for Minecraft: Java Edition. The proje
 
 ## Current status
 
-Flint is at **Milestone 1 (launcher foundation), version 0.1.0**. The React interface, offline profile persistence, isolated game directories, Java 25 detection, Mojang metadata/download pipeline, cache integrity checks, native extraction, launch argument construction, and Java child-process management are implemented.
+Flint is at **Milestone 2, version 0.2.0**. It extends the verified vanilla launcher with dynamic Mojang versions, metadata-driven Java selection, Fabric, isolated Modrinth mods and presets, fuller profile/settings management, resilient downloads, Discord presence integration, and Windows installers.
 
-The frontend production build, lint, frontend tests, Rust compile check, Rust unit tests, and a debug Tauri executable build pass on Windows. An actual Minecraft launch still requires Java 25 and manual verification. Flint does **not** claim a manually verified Minecraft launch yet.
+The frontend and native test suites, live Fabric/Modrinth metadata checks, optimized Tauri build, and MSI/NSIS packaging pass on Windows. The project owner manually verified the Milestone 1 Minecraft 26.2 main-menu, cache-reuse, and multiplayer baseline. Native UI automation was unavailable for the final 0.2.0 regression run, so this document does **not** claim a new post-change main-menu observation.
 
-The only supported game version is **vanilla Minecraft Java Edition 26.2**, verified against Mojang's live release manifest on 2026-09-07. Other versions are deliberately rejected in Milestone 1.
+Release profiles can select versions dynamically from Mojang's official catalog; snapshots are opt-in. Version 26.2 remains the default and regression baseline. A version must provide a Mojang Java requirement and metadata compatible with Flint's modern/legacy argument parser.
 
 ## Working features
 
-- Create and edit local/offline profiles with validated Minecraft usernames.
+- Create, edit, duplicate, and delete local/offline profiles with validated Minecraft usernames and deletion confirmation.
 - Persist profile identifiers, names, usernames, version selection, and timestamps.
 - Give every profile its own `instances/<profile-id>/game` directory.
-- Detect and execute a compatible installed Java 25 runtime.
+- Detect installed 64-bit Java runtimes and select the major declared by the chosen version, or validate a manual executable.
 - Read Mojang's official version manifest and selected version metadata.
 - Download the client, libraries, Windows natives, asset index, assets, and logging configuration.
 - Verify cached/downloaded files using the Mojang-provided SHA-1 and size where supplied.
 - Build modern rule-aware JVM/game arguments and start Minecraft as a child process.
 - Prevent concurrent preparation/running launches and report progress/errors to the UI.
 - Write Flint and Minecraft output logs outside the repository.
+- Select Vanilla or a compatible Fabric Loader release per profile.
+- Preview and apply compatible Performance or Visuals presets from live Modrinth metadata.
+- Search, install, list, replace, and remove compatible Fabric mods per isolated profile.
+- Configure RAM, resolution, snapshots, Java selection, Discord presence, and window behavior.
+- Build normal x64 MSI and NSIS Windows installers with Start Menu/uninstall integration supplied by Tauri.
 
 Offline profiles are not authenticated accounts. They cannot join online-mode servers and do not bypass server authentication.
 
@@ -38,7 +43,7 @@ Offline profiles are not authenticated accounts. They cannot join online-mode se
 - Node.js 20.19 or newer and npm
 - Rust stable (MSVC target)
 - Visual Studio 2022 Build Tools with **Desktop development with C++** and a Windows SDK
-- A 64-bit Java 25 runtime (Temurin or Microsoft OpenJDK are suitable)
+- Compatible 64-bit Java runtimes for the Minecraft versions you use (Temurin or Microsoft OpenJDK are suitable)
 - Network access to Mojang/Minecraft metadata and asset hosts on first launch
 
 ## Development
@@ -62,6 +67,8 @@ cargo test --manifest-path src-tauri/Cargo.toml
 
 Run `npm run tauri dev`, create a local profile, and select **PLAY**. First preparation downloads the vanilla runtime files and can take several minutes. Subsequent runs validate and reuse the shared cache.
 
+Create Windows release bundles with `npm run tauri build`. Successful MSI and NSIS artifacts are written below `src-tauri/target/release/bundle/`; do not distribute the debug target directory.
+
 ## Runtime data
 
 Runtime state is resolved with the operating system's application-data convention and never stored in this repository:
@@ -73,18 +80,21 @@ Flint app data/
 │   ├── versions/                  # version metadata, client, natives
 │   ├── libraries/                 # shared libraries
 │   └── assets/                    # shared indexes, objects, log configs
+│   └── metadata/                  # cached Mojang catalog
 ├── profiles/profiles.json         # non-secret local profile metadata
+├── settings/settings.json         # launcher preferences
 └── logs/                          # Flint and Minecraft logs
 ```
 
 ## Current limitations
 
-- Windows is the only launch target evaluated by the Milestone 1 rule resolver.
-- Only Minecraft 26.2 and Java 25 are accepted. This development machine currently has Java 21, so a local launch remains blocked until Java 25 is installed.
+- Windows is the only launch target currently evaluated by the rule resolver and release pipeline.
+- Very old releases that omit a Java requirement produce an actionable unsupported-metadata error rather than a guessed runtime choice.
 - Microsoft authentication is not implemented.
-- No managed Java download, loader, mods, resource-pack management, server credentials, Discord integration, updater, or telemetry exists.
+- No managed Java download, Forge/NeoForge, resource-pack management, server credentials, updater, or telemetry exists.
 - Downloads use bounded concurrency but do not yet offer pause/resume or retry controls.
-- Profiles can be deleted through the backend IPC, but the current minimal UI exposes create/edit/select only.
-- A debug desktop executable builds successfully. Release installer packaging and a real-game launch remain to be manually verified before release.
+- Required Modrinth dependencies are installed, but optional dependency recommendations, conflicts, and mod updates are not yet modeled in the UI.
+- Discord Rich Presence requires a release build configured with `FLINT_DISCORD_CLIENT_ID` and a registered `flint` image asset; without it Flint logs and continues normally.
+- MSI and NSIS bundles are unsigned beta artifacts. A post-change vanilla and Fabric main-menu launch still requires manual confirmation.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [TREE.md](TREE.md), and [CHECKBOX.md](CHECKBOX.md) for implementation details and roadmap status.

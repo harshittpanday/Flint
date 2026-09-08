@@ -6,7 +6,7 @@ This project does not yet publish a security email or hosted disclosure channel.
 
 ## Current scope
 
-Milestone 1 stores non-secret offline profile metadata and downloads public vanilla Minecraft artifacts from Mojang/Minecraft HTTPS endpoints. TLS verification remains enabled. Downloads are checked against Mojang-provided SHA-1 values and sizes where available before use. Each profile has an isolated mutable game directory.
+Milestone 2 stores non-secret offline profile/settings metadata and downloads public artifacts from Mojang, Fabric, and Modrinth HTTPS endpoints. TLS verification remains enabled. Downloads are checked against publisher SHA-1 values and sizes where available before use. Each profile has an isolated mutable game directory and managed-mod manifest.
 
 Local/offline identities are not authenticated sessions. Flint does not create Microsoft tokens, forge sessions, or bypass online-mode server authentication. Credential-bearing features are not implemented.
 
@@ -34,3 +34,5 @@ AutoAuth requires a threat model before code. The companion must authenticate lo
 ## Dependencies and network
 
 Use maintained dependencies, retain lockfiles, review advisories, and do not disable TLS validation. Minecraft metadata remains untrusted input even when delivered by an official endpoint: paths from archives are constrained during extraction and all metadata errors must fail closed.
+
+Fabric Maven coordinates and Modrinth filenames are untrusted. Flint constrains generated paths, rejects traversal/non-JAR mod names, and only removes files recorded in the selected instance's managed manifest. Discord presence receives only launcher state and game version; server addresses, usernames, and profile names are not sent. RPC connection failure must never block Minecraft.
