@@ -153,4 +153,29 @@ mod tests {
             "/net/fabricmc/fabric-loader/0.19.5/fabric-loader-0.19.5.jar"
         );
     }
+
+    #[tokio::test]
+    async fn live_fabric_metadata_when_enabled() {
+        if std::env::var_os("FLINT_LIVE_TEST").is_none() {
+            return;
+        }
+        let loaders = list_loaders("26.2").await.unwrap();
+        let loader = loaders.iter().find(|item| item.stable).unwrap();
+        let profile: FabricProfile = client()
+            .unwrap()
+            .get(format!(
+                "{FABRIC_META}/versions/loader/26.2/{}/profile/json",
+                loader.version
+            ))
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(profile.main_class.contains("KnotClient"));
+        assert!(!profile.libraries.is_empty());
+    }
 }

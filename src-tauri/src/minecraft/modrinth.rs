@@ -371,4 +371,15 @@ mod tests {
         assert_eq!(list_installed(&paths, "one").unwrap().len(), 1);
         assert!(list_installed(&paths, "two").unwrap().is_empty());
     }
+
+    #[tokio::test]
+    async fn live_presets_resolve_when_enabled() {
+        if std::env::var_os("FLINT_LIVE_TEST").is_none() {
+            return;
+        }
+        let performance = preview_preset("26.2", &Preset::Performance).await.unwrap();
+        let visuals = preview_preset("26.2", &Preset::Visuals).await.unwrap();
+        assert_eq!(performance.len(), 3);
+        assert_eq!(visuals.len(), 1);
+    }
 }
