@@ -78,5 +78,5 @@ Entries are append-only and record what was true when work was performed.
 - Cargo formatting and check passed; Rust passed 15 tests. Two network-backed live tests passed against Fabric and Modrinth; the separately filtered Mojang fixture test was a conditional no-op because no fixture path was supplied.
 - Live API validation found Fabric Loader 0.19.5 stable for 26.2 and compatible current Modrinth builds for all four preset projects.
 - Java 21.0.12.1 and Java 25.0.4.1 both executed as 64-bit Temurin runtimes; Flint's focused detector test passed for each major.
-- The optimized Tauri build passed and produced both installer formats.
-- The 0.2.0 release process launched without a console window. Native computer control was unavailable in this session, so no new vanilla or Fabric main-menu launch is claimed.
+- The final optimized Tauri rebuild passed from the clean Milestone 2 tree and regenerated the application, x64 MSI, and x64 NSIS installer.
+- The first direct executable invocation ended before the follow-up process inspection and produced no Flint crash log or Windows application error. A diagnostic invocation of the same rebuilt executable then presented a responsive `Flint` main window for 46 seconds and exited normally with code 0. Native computer control was unavailable in this session, so no new vanilla or Fabric main-menu launch is claimed.

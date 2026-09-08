@@ -128,6 +128,7 @@
 - [x] Build debug Tauri desktop executable
 - [x] Optimized Windows GUI executable with no release console subsystem
 - [x] Tauri x64 MSI and NSIS installer builds
+- [x] Direct rebuilt 0.2.0 executable smoke test (responsive Flint window and exit code 0)
 - [ ] Code signing
 - [ ] Windows install/uninstall smoke test
 
