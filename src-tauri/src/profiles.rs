@@ -215,6 +215,12 @@ fn validate(input: &ProfileInput) -> Result<()> {
             "Choose a compatible Fabric Loader version.",
         ));
     }
+    if input.loader == Loader::Vanilla && input.preset != Preset::Vanilla {
+        return Err(AppError::new(
+            "fabric_preset_required",
+            "Performance, visuals, and custom mod presets require Fabric.",
+        ));
+    }
     Ok(())
 }
 

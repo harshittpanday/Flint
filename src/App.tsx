@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { ProfileForm } from "./components/ProfileForm";
+import { ModManager } from "./components/ModManager";
 import { StatusLog } from "./components/StatusLog";
 import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
@@ -61,6 +62,11 @@ export default function App() {
       setSelectedId(saved.id);
       setEditing(false);
       setStatus((items) => [...items, { phase: "ready", message: "Profile “" + saved.name + "” saved." }]);
+      if (input.preset === "performance" || input.preset === "visuals") {
+        setStatus((items) => [...items, { phase: "downloading", message: "Installing compatible preset mods…" }]);
+        await api.applyProfilePreset(saved.id);
+        setStatus((items) => [...items, { phase: "ready", message: "Preset mods installed." }]);
+      }
     } catch (error) {
       setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
     }
@@ -147,6 +153,8 @@ export default function App() {
               </div>
               <button className="play-button" disabled={busy} onClick={launch}>{playLabel}<span>▶</span></button>
               <p className="offline-note">Offline identity only. Online-mode servers require authentication, which is outside this milestone.</p>
+              <ModManager key={selected.id} profile={selected} disabled={busy}
+                onMessage={(message, failed) => setStatus((items) => [...items, { phase: failed ? "failed" : "ready", message }])} />
             </>
           )}
         </section>

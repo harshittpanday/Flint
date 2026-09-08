@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
-import type { FabricLoaderVersion, Loader, MinecraftVersion, Preset, Profile, ProfileInput } from "../types";
+import type { FabricLoaderVersion, Loader, MinecraftVersion, Preset, PresetMod, Profile, ProfileInput } from "../types";
 import { DEFAULT_VERSION } from "../types";
 import { isValidMemoryMb, isValidMinecraftUsername, isValidProfileName } from "../validation";
 
@@ -25,6 +25,8 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
   const [fabricVersions, setFabricVersions] = useState<FabricLoaderVersion[]>(
     profile?.fabricLoaderVersion ? [{ version: profile.fabricLoaderVersion, stable: true }] : [],
   );
+  const [presetPreview, setPresetPreview] = useState<PresetMod[]>([]);
+  const [previewing, setPreviewing] = useState(false);
 
   async function loadFabricVersions(version: string) {
     try {
@@ -40,6 +42,21 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
     }
   }
 
+  async function selectPreset(next: Preset, version = minecraftVersion) {
+    setPreset(next);
+    setPresetPreview([]);
+    if (next === "vanilla" || next === "custom") return;
+    setPreviewing(true);
+    try {
+      setPresetPreview(await api.previewPreset(version, next));
+      setError("");
+    } catch {
+      setError("This preset has no fully compatible Modrinth set for the selected version.");
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!isValidMinecraftUsername(username)) {
@@ -52,6 +69,14 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
     }
     if (!isValidMemoryMb(memoryMb)) {
       setError("Memory must be a whole number between 512 MB and 32 GB.");
+      return;
+    }
+    if (loader === "fabric" && !fabricLoaderVersion) {
+      setError("Choose a compatible Fabric Loader version.");
+      return;
+    }
+    if ((preset === "performance" || preset === "visuals") && presetPreview.length === 0) {
+      setError("Wait for a compatible preset preview before saving.");
       return;
     }
     setError("");
@@ -79,7 +104,7 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
       </label>
       <label>
         Minecraft version
-        <select value={minecraftVersion} onChange={(event) => { setMinecraftVersion(event.target.value); if (loader === "fabric") void loadFabricVersions(event.target.value); }} disabled={disabled || versions.length === 0}>
+        <select value={minecraftVersion} onChange={(event) => { setMinecraftVersion(event.target.value); if (loader === "fabric") void loadFabricVersions(event.target.value); if (preset === "performance" || preset === "visuals") void selectPreset(preset, event.target.value); }} disabled={disabled || versions.length === 0}>
           {versions.length === 0 && <option value={minecraftVersion}>{minecraftVersion}</option>}
           {versions.map((version) => <option key={version.id} value={version.id}>{version.id}{version.versionType === "snapshot" ? " — Snapshot" : ""}</option>)}
         </select>
@@ -102,13 +127,15 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
       )}
       <label>
         Preset
-        <select value={preset} onChange={(event) => setPreset(event.target.value as Preset)} disabled={disabled || loader !== "fabric"}>
+        <select value={preset} onChange={(event) => void selectPreset(event.target.value as Preset)} disabled={disabled || loader !== "fabric"}>
           <option value="vanilla">Vanilla — no mods</option>
           {loader === "fabric" && <option value="performance">Performance — Sodium, Lithium, Entity Culling</option>}
           {loader === "fabric" && <option value="visuals">Visuals — Iris and required dependencies</option>}
           {loader === "fabric" && <option value="custom">Custom — manage mods after creation</option>}
         </select>
       </label>
+      {previewing && <p className="preset-preview">Resolving compatible Modrinth versions…</p>}
+      {presetPreview.length > 0 && <div className="preset-preview"><strong>This preset will install:</strong>{presetPreview.map((item) => <span key={item.projectId}>{item.title} · {item.versionNumber}</span>)}</div>}
       <label>
         Memory (MB)
         <input type="number" min={512} max={32768} step={256} value={memoryMb} onChange={(event) => setMemoryMb(Number(event.target.value))} disabled={disabled} />
@@ -116,7 +143,7 @@ export function ProfileForm({ profile, disabled, versions, defaultMemoryMb, onSa
       {error && <p className="field-error">{error}</p>}
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel} disabled={disabled}>Cancel</button>
-        <button type="submit" disabled={disabled}>Save profile</button>
+        <button type="submit" disabled={disabled || previewing}>Save profile</button>
       </div>
     </form>
   );

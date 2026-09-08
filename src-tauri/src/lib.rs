@@ -6,7 +6,7 @@ mod profiles;
 mod settings;
 
 use error::{AppError, Result};
-use minecraft::{arguments, catalog, fabric, install};
+use minecraft::{arguments, catalog, fabric, install, modrinth};
 use paths::AppPaths;
 use profiles::{Profile, ProfileInput};
 use std::sync::{
@@ -52,6 +52,68 @@ async fn list_minecraft_versions(
 #[tauri::command]
 async fn list_fabric_loaders(game_version: String) -> Result<Vec<fabric::FabricLoaderVersion>> {
     fabric::list_loaders(&game_version).await
+}
+
+#[tauri::command]
+async fn search_mods(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    query: String,
+) -> Result<Vec<modrinth::ModProject>> {
+    let profile = profiles::find(&paths, &profile_id)?;
+    if profile.loader != profiles::Loader::Fabric {
+        return Err(AppError::new(
+            "fabric_profile_required",
+            "Select a Fabric profile before searching for mods.",
+        ));
+    }
+    modrinth::search(query.trim(), &profile.minecraft_version).await
+}
+
+#[tauri::command]
+async fn preview_preset(
+    game_version: String,
+    preset: profiles::Preset,
+) -> Result<Vec<modrinth::PresetMod>> {
+    modrinth::preview_preset(&game_version, &preset).await
+}
+
+#[tauri::command]
+async fn apply_profile_preset(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+) -> Result<Vec<modrinth::InstalledMod>> {
+    let profile = profiles::find(&paths, &profile_id)?;
+    modrinth::apply_preset(&paths, &profile).await
+}
+
+#[tauri::command]
+fn list_installed_mods(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+) -> Result<Vec<modrinth::InstalledMod>> {
+    profiles::find(&paths, &profile_id)?;
+    modrinth::list_installed(&paths, &profile_id)
+}
+
+#[tauri::command]
+async fn install_mod(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    project_id: String,
+) -> Result<Vec<modrinth::InstalledMod>> {
+    let profile = profiles::find(&paths, &profile_id)?;
+    modrinth::install(&paths, &profile, &project_id).await
+}
+
+#[tauri::command]
+fn remove_mod(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    project_id: String,
+) -> Result<Vec<modrinth::InstalledMod>> {
+    profiles::find(&paths, &profile_id)?;
+    modrinth::remove(&paths, &profile_id, &project_id)
 }
 
 #[tauri::command]
@@ -205,6 +267,12 @@ pub fn run() {
             duplicate_profile,
             list_minecraft_versions,
             list_fabric_loaders,
+            search_mods,
+            preview_preset,
+            apply_profile_preset,
+            list_installed_mods,
+            install_mod,
+            remove_mod,
             get_settings,
             save_settings,
             list_java_runtimes,

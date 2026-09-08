@@ -39,6 +39,31 @@ export interface FabricLoaderVersion {
   stable: boolean;
 }
 
+export interface ModProject {
+  projectId: string;
+  slug: string;
+  title: string;
+  description: string;
+  author: string;
+  iconUrl?: string;
+  downloads: number;
+}
+
+export interface InstalledMod {
+  projectId: string;
+  versionId: string;
+  name: string;
+  versionNumber: string;
+  filename: string;
+}
+
+export interface PresetMod {
+  projectId: string;
+  slug: string;
+  title: string;
+  versionNumber: string;
+}
+
 export type RunningBehavior = "keepOpen" | "minimize" | "hide";
 
 export interface LauncherSettings {
