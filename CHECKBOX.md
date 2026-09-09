@@ -100,6 +100,7 @@
 ## Discord Rich Presence
 
 - [x] Failure-isolated, privacy-safe presence adapter and disable setting
+- [x] Configure the reviewed public Flint Discord Application ID
 - [ ] Live Discord activity verification with a configured Flint application ID/assets
 
 ## UI/UX

@@ -67,7 +67,7 @@ Modrinth search and version queries are filtered by the profile's exact Minecraf
 
 ## Error propagation and logging
 
-Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity is initialized when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
+Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity uses the public Flint Application ID `1547183366091051019`, initializes when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
 
 ## Future architecture (not implemented)
 

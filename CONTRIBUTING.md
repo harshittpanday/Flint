@@ -25,7 +25,7 @@ npm run tauri build
 
 Use `cargo clippy --all-targets --all-features -- -D warnings` when the native toolchain is available. Launcher changes should also be exercised from a clean throwaway app-data/cache state without deleting a contributor's real instance data.
 
-Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and Modrinth compatibility tests. Release builds that enable Discord Rich Presence must set `FLINT_DISCORD_CLIENT_ID` to the reviewed Flint Discord Application ID and configure the matching `flint` image asset.
+Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and Modrinth compatibility tests. Discord Rich Presence uses the reviewed public Flint Application ID in source and requires the matching `flint` image asset in the Discord Developer Portal.
 
 ## Conventions
 
@@ -38,7 +38,7 @@ Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and
 - Never log or commit credentials, tokens, secrets, runtime instances, or downloaded Minecraft content.
 - Preserve instance isolation. Shared cache data must be immutable or safely replaceable.
 - Create launcher-owned processes through `process_command`; Windows release children must remain console-free while required stdout/stderr is captured or redirected to Flint logs.
-- Keep Discord activity privacy-safe and failure-isolated. The public Application ID may be configured at build time, but bot tokens and client secrets must never be embedded.
+- Keep Discord activity privacy-safe and failure-isolated. The public Application ID may remain in source, but bot tokens, public keys, and client secrets must not be added without a reviewed feature that actually requires them.
 - Create a tested Conventional Commit after each meaningful working unit. Never amend shared history or push on a contributor's behalf.
 
 Update README, TREE, ARCHITECTURE, SECURITY, and the append-only HISTORY when behavior or boundaries change. Update CHECKBOX only after the relevant verification passes; code existing is not sufficient evidence that the behavior works.

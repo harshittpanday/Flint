@@ -1,6 +1,7 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 
 const JOIN_DISCORD_URL: &str = "https://discord.gg/atWfHfwjYy";
+const DISCORD_APPLICATION_ID: &str = "1547183366091051019";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PresenceState {
@@ -46,19 +47,10 @@ impl Presence {
             self.connection_attempted = false;
             return;
         }
-        let Some(client_id) = option_env!("FLINT_DISCORD_CLIENT_ID") else {
-            if !self.connection_attempted {
-                tracing::warn!(
-                    "Discord presence is enabled but FLINT_DISCORD_CLIENT_ID was not built into Flint"
-                );
-                self.connection_attempted = true;
-            }
-            return;
-        };
-        if !client_id
+        if !DISCORD_APPLICATION_ID
             .chars()
             .all(|character| character.is_ascii_digit())
-            || client_id.is_empty()
+            || DISCORD_APPLICATION_ID.is_empty()
         {
             if !self.connection_attempted {
                 tracing::warn!("Discord presence Application ID is invalid");
@@ -71,7 +63,7 @@ impl Presence {
                 return;
             }
             self.connection_attempted = true;
-            let mut client = DiscordIpcClient::new(client_id);
+            let mut client = DiscordIpcClient::new(DISCORD_APPLICATION_ID);
             if let Err(error) = client.connect() {
                 tracing::warn!(%error, "Discord RPC is unavailable; presence is disabled for this session");
                 return;
@@ -110,7 +102,15 @@ impl Default for Presence {
 
 #[cfg(test)]
 mod tests {
-    use super::{Presence, PresenceState};
+    use super::{Presence, PresenceState, DISCORD_APPLICATION_ID};
+
+    #[test]
+    fn production_application_id_is_configured() {
+        assert_eq!(DISCORD_APPLICATION_ID, "1547183366091051019");
+        assert!(DISCORD_APPLICATION_ID
+            .chars()
+            .all(|character| character.is_ascii_digit()));
+    }
 
     #[test]
     fn activity_labels_are_privacy_safe_and_product_consistent() {
@@ -126,11 +126,8 @@ mod tests {
     }
 
     #[test]
-    fn disabled_or_unconfigured_presence_is_non_blocking() {
+    fn disabled_presence_is_non_blocking() {
         let mut presence = Presence::new();
         presence.update(false, PresenceState::Browsing);
-        if option_env!("FLINT_DISCORD_CLIENT_ID").is_none() {
-            presence.update(true, PresenceState::Preparing);
-        }
     }
 }

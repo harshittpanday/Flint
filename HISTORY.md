@@ -99,3 +99,9 @@ Entries are append-only and record what was true when work was performed.
 - The optimized Tauri release build passed and regenerated the x64 MSI and NSIS bundles. The exact release `flint.exe` opened a responsive Flint window and accepted a normal close request; startup left no helper or Java child running.
 - No Discord Application ID exists in the repository or environment, so live Discord display is not verified. A public numeric Application ID and registered `flint` image asset are still required.
 - The project owner supplied the current manual Minecraft/Fabric/Modrinth baseline. Native Windows UI capture was unavailable, so no new main-menu or visible terminal-suppression observation is claimed; both remain manual release-candidate checks.
+
+### Discord application configuration
+
+- Configured public Discord Application ID `1547183366091051019` directly in the Rich Presence adapter, removing the `FLINT_DISCORD_CLIENT_ID` requirement for normal builds and users.
+- Retained the `flint` art asset name, Join Discord button, privacy-safe lifecycle states, Settings toggle, and non-blocking connection behavior. No bot token, client secret, public key, or credential was added.
+- Rust formatting/check and all 21 Rust tests passed, including the exact-ID regression test. The optimized Windows release and both x64 installer formats rebuilt successfully; live Discord display still requires observation with Discord running and the Developer Portal asset available.

@@ -97,7 +97,7 @@ Flint app data/
 - No managed Java download, Forge/NeoForge, resource-pack management, server credentials, updater, or telemetry exists.
 - Downloads use bounded concurrency but do not yet offer pause/resume or retry controls.
 - Required Modrinth dependencies are installed, but optional dependency recommendations, conflicts, and mod updates are not yet modeled in the UI.
-- Discord Rich Presence requires the public numeric Flint Discord Application ID at build time as `FLINT_DISCORD_CLIENT_ID` and a registered `flint` image asset. No ID is currently configured; without it Flint logs once and continues normally.
+- Discord Rich Presence uses Flint's public Application ID `1547183366091051019`. The Discord Developer Portal must retain the registered `flint` image asset; RPC remains optional and failure-isolated when Discord is closed or unavailable.
 - MSI and NSIS bundles are unsigned beta artifacts. A post-change vanilla and Fabric main-menu launch still requires manual confirmation.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [TREE.md](TREE.md), and [CHECKBOX.md](CHECKBOX.md) for implementation details and roadmap status.
