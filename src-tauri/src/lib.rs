@@ -3,6 +3,7 @@ mod java;
 mod minecraft;
 mod paths;
 mod presence;
+mod process_command;
 mod profiles;
 mod settings;
 

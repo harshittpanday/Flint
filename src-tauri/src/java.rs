@@ -4,7 +4,6 @@ use serde::Serialize;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},
-    process::Command,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -20,7 +19,10 @@ pub fn list() -> Vec<JavaInfo> {
     if let Some(home) = std::env::var_os("JAVA_HOME") {
         candidates.push(PathBuf::from(home).join("bin/java.exe"));
     }
-    if let Ok(output) = Command::new("where.exe").arg("java.exe").output() {
+    if let Ok(output) = crate::process_command::std_command("where.exe")
+        .arg("java.exe")
+        .output()
+    {
         candidates.extend(
             String::from_utf8_lossy(&output.stdout)
                 .lines()
@@ -40,11 +42,16 @@ pub fn list() -> Vec<JavaInfo> {
             &PathBuf::from(local_app_data).join(r"Programs\Eclipse Adoptium"),
         ));
     }
-    let mut seen = HashSet::new();
+    let mut seen_paths = HashSet::new();
+    let mut seen_installations = HashSet::new();
     let mut detected = Vec::new();
     for candidate in candidates {
-        if candidate.is_file() && seen.insert(candidate.clone()) {
-            if let Some(info) = inspect(&candidate) {
+        let path_key = normalized_path(&candidate);
+        if !candidate.is_file() || !seen_paths.insert(path_key) {
+            continue;
+        }
+        if let Some((info, installation_key)) = inspect_with_identity(&candidate) {
+            if seen_installations.insert(installation_key) {
                 detected.push(info);
             }
         }
@@ -87,7 +94,11 @@ fn java_children(root: &Path) -> Vec<PathBuf> {
 }
 
 pub fn inspect(path: &Path) -> Option<JavaInfo> {
-    let output = Command::new(path)
+    inspect_with_identity(path).map(|(info, _)| info)
+}
+
+fn inspect_with_identity(path: &Path) -> Option<(JavaInfo, String)> {
+    let output = crate::process_command::std_command(path)
         .args(["-XshowSettings:properties", "-version"])
         .output()
         .ok()?;
@@ -121,16 +132,33 @@ pub fn inspect(path: &Path) -> Option<JavaInfo> {
         .unwrap_or("Java runtime")
         .trim()
         .to_string();
-    Some(JavaInfo {
-        path: path.to_path_buf(),
-        major_version: major,
-        description,
-    })
+    let installation_key = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("java.home ="))
+        .map(|home| normalized_path(Path::new(home.trim())))
+        .unwrap_or_else(|| normalized_path(path));
+    Some((
+        JavaInfo {
+            path: path.to_path_buf(),
+            major_version: major,
+            description,
+        },
+        installation_key,
+    ))
+}
+
+fn normalized_path(path: &Path) -> String {
+    std::fs::canonicalize(path)
+        .unwrap_or_else(|_| path.to_path_buf())
+        .to_string_lossy()
+        .trim_end_matches(['\\', '/'])
+        .to_ascii_lowercase()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::detect;
+    use super::{detect, normalized_path};
+    use std::path::Path;
 
     #[test]
     fn java_version_regex_handles_modern_versions() {
@@ -153,5 +181,13 @@ mod tests {
             detect(expected, None).expect("requested installed Java runtime was not detected");
         assert_eq!(detected.major_version, expected);
         assert!(detected.path.is_file());
+    }
+
+    #[test]
+    fn equivalent_windows_paths_share_a_deduplication_key() {
+        assert_eq!(
+            normalized_path(Path::new(r"C:\Java\Temurin\")),
+            normalized_path(Path::new(r"c:\java\temurin"))
+        );
     }
 }

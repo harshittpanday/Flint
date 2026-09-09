@@ -32,7 +32,7 @@ pub fn launch(
         .append(true)
         .open(paths.logs.join("minecraft.log"))?;
     let error_log = game_log.try_clone()?;
-    let mut command = tokio::process::Command::new(&java.path);
+    let mut command = crate::process_command::tokio_command(&java.path);
     command
         .args(&arguments.jvm)
         .arg(&prepared.metadata.main_class)
