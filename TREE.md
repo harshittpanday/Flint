@@ -8,7 +8,7 @@ Flint/
 │   │   ├── ProfileForm.tsx      Offline profile editor and validation feedback
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
-│   ├── App.tsx                  Milestone 2 navigation, settings, profiles, launch state
+│   ├── App.tsx                  Consumer navigation, settings, profiles, and launch state
 │   ├── types.ts                 Shared frontend payload shapes
 │   ├── validation.ts            Testable frontend input rules
 │   └── styles.css               Flint's Windows desktop layout and visual system
@@ -31,6 +31,7 @@ Flint/
 │   │   ├── profiles.rs          Validated JSON profile persistence
 │   │   ├── settings.rs          Validated launcher preferences
 │   │   ├── presence.rs          Optional privacy-safe Discord RPC adapter
+│   │   ├── process_command.rs   Windows release child-process console policy
 │   │   ├── lib.rs               Tauri state, commands, logging, composition root
 │   │   └── main.rs              Desktop binary entry point
 │   ├── Cargo.toml               Rust crate dependencies and targets

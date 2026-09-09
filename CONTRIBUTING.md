@@ -37,6 +37,8 @@ Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and
 - Keep TypeScript strict, components small, and validation independently testable.
 - Never log or commit credentials, tokens, secrets, runtime instances, or downloaded Minecraft content.
 - Preserve instance isolation. Shared cache data must be immutable or safely replaceable.
+- Create launcher-owned processes through `process_command`; Windows release children must remain console-free while required stdout/stderr is captured or redirected to Flint logs.
+- Keep Discord activity privacy-safe and failure-isolated. The public Application ID may be configured at build time, but bot tokens and client secrets must never be embedded.
 - Create a tested Conventional Commit after each meaningful working unit. Never amend shared history or push on a contributor's behalf.
 
 Update README, TREE, ARCHITECTURE, SECURITY, and the append-only HISTORY when behavior or boundaries change. Update CHECKBOX only after the relevant verification passes; code existing is not sufficient evidence that the behavior works.

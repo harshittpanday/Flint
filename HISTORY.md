@@ -80,3 +80,22 @@ Entries are append-only and record what was true when work was performed.
 - Java 21.0.12.1 and Java 25.0.4.1 both executed as 64-bit Temurin runtimes; Flint's focused detector test passed for each major.
 - The final optimized Tauri rebuild passed from the clean Milestone 2 tree and regenerated the application, x64 MSI, and x64 NSIS installer.
 - The first direct executable invocation ended before the follow-up process inspection and produced no Flint crash log or Windows application error. A diagnostic invocation of the same rebuilt executable then presented a responsive `Flint` main window for 46 seconds and exited normally with code 0. Native computer control was unavailable in this session, so no new vanilla or Fabric main-menu launch is claimed.
+
+## 2026-09-09 — Day 3 release readiness (0.2.0)
+
+### Implemented
+
+- Routed every launcher-owned child command through one platform policy. Windows release builds now apply `CREATE_NO_WINDOW` to Java discovery, Java validation, and the Minecraft/Fabric Java child while preserving captured and file-redirected output.
+- Deduplicated Java aliases using their resolved `java.home` identity, eliminating repeated entries without merging genuinely separate installations.
+- Completed Discord activity lifecycle handling for browsing, preparing, downloading, launching, playing, disabling, and returning to Flint. Connection/configuration failures are logged once per enabled session and never propagate into launch.
+- Replaced the scrolling developer-dashboard layout with consumer Home, Profiles, Mods, and Settings views. Play and player identity lead the Home screen; installed/discover mods are separated; settings are grouped into Minecraft, Launcher, and Advanced sections.
+- Added responsive minimum-window behavior, visible keyboard focus, reduced-motion handling, explicit loading/disabled/error states, and clearer destructive actions.
+
+### Verification and limitations
+
+- The process policy, Java identity, privacy-safe activity labels, and non-blocking unconfigured-presence behavior have focused Rust tests.
+- Frontend production build, lint, and all 4 frontend tests passed after the redesign. Visual browser QA passed at a standard desktop viewport and 780×620 without horizontal clipping.
+- Rust formatting/check passed and all 20 Rust tests passed. Live verification passed for the cached official Mojang 26.2 metadata plus current Fabric and Modrinth compatibility; focused Java 21 and Java 25 detector runs also passed.
+- The optimized Tauri release build passed and regenerated the x64 MSI and NSIS bundles. The exact release `flint.exe` opened a responsive Flint window and accepted a normal close request; startup left no helper or Java child running.
+- No Discord Application ID exists in the repository or environment, so live Discord display is not verified. A public numeric Application ID and registered `flint` image asset are still required.
+- The project owner supplied the current manual Minecraft/Fabric/Modrinth baseline. Native Windows UI capture was unavailable, so no new main-menu or visible terminal-suppression observation is claimed; both remain manual release-candidate checks.

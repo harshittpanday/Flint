@@ -30,6 +30,7 @@
 ## Java Runtime
 
 - [x] Detect and execute installed Java candidates
+- [x] Deduplicate equivalent Java runtime aliases by resolved installation
 - [x] Select an installed 64-bit Java major from Mojang version metadata with actionable errors
 - [x] Support a validated manual Java executable override
 - [ ] Add Flint-managed Java runtimes
@@ -106,6 +107,7 @@
 - [x] Usable profile, version, Play, runtime, and status interface
 - [x] Busy/disabled Play states and understandable failures
 - [x] Home/Profile/Mods/Settings navigation and obvious Play action
+- [x] Consumer launcher layout verified at standard and 780×620 browser viewports
 - [ ] Accessibility and keyboard-flow audit
 - [ ] Download speed, byte progress, and cancellation
 - [x] Real current-library and completed/total task progress
@@ -118,10 +120,14 @@
 - [x] Rust formatting check
 - [x] Rust compile check
 - [x] Rust unit tests
+- [x] Windows release child-process console policy tests
+- [x] Java runtime identity/deduplication tests
+- [x] Discord RPC failure-isolation and activity-label tests
 - [x] Live Fabric and Modrinth 26.2 metadata compatibility tests
 - [x] Historical clean-cache and normal-exit evidence for the Milestone 1 baseline
 - [ ] Post-Milestone 2 observed vanilla main-menu and normal-exit test
 - [ ] Observed Fabric main-menu and normal-exit test
+- [ ] Manually observe a terminal-free Play and Minecraft session in the Day 3 release build
 
 ## Packaging
 

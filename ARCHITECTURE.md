@@ -23,8 +23,9 @@ The current Tauri capability grants only core main-window behavior. Filesystem a
 - `paths`: deterministic OS application-data layout.
 - `profiles`: validation and durable JSON storage.
 - `settings`: validated launcher preferences with safe defaults.
-- `java`: candidate discovery plus real `java -version` execution.
+- `java`: deduplicated candidate discovery plus real `java -version` execution.
 - `presence`: optional, failure-isolated Discord IPC activity adapter.
+- `process_command`: common child-command construction and Windows release console policy.
 - `minecraft::catalog`: cached Mojang version catalog with stale fallback.
 - `minecraft::fabric`: compatible loader discovery and launch-plan overlay.
 - `minecraft::modrinth`: compatibility-filtered per-profile mod lifecycle and presets.
@@ -46,11 +47,11 @@ The downloader currently buffers each individual response before committing it. 
 
 ## Java and process launch
 
-Flint reads the required Java major from the selected Mojang version metadata. It considers `JAVA_HOME`, `PATH`, and common Windows vendor locations, and accepts only executable 64-bit candidates with the exact required major. A manual path is validated by the same code.
+Flint reads the required Java major from the selected Mojang version metadata. It considers `JAVA_HOME`, `PATH`, and common Windows vendor locations, and accepts only executable 64-bit candidates with the exact required major. Candidate aliases are deduplicated by the runtime's resolved `java.home`, preserving genuinely separate installations. A manual path is validated by the same code.
 
 Argument construction expands Mojang placeholders, joins the Windows classpath, adds the resolved logging configuration, and creates the conventional deterministic UUID v3 from `OfflinePlayer:<username>`. The access token remains a non-authenticated sentinel; Flint does not forge Microsoft credentials.
 
-Minecraft runs in the profile's isolated game directory. Standard output and error append to the local Minecraft log. An atomic state flag prevents duplicate launches until the child exits, and exit status is returned to the interface through a structured event.
+Minecraft runs in the profile's isolated game directory. Standard output and error append to the local Minecraft log. Every launcher-owned command—including `where.exe`, Java inspection, and the Minecraft/Fabric Java process—uses the shared process-command policy. Windows release builds apply `CREATE_NO_WINDOW`; debug builds retain their development console behavior. An atomic state flag prevents duplicate launches until the child exits, and exit status is returned to the interface through a structured event.
 
 ## Instances and shared cache
 
@@ -66,7 +67,7 @@ Modrinth search and version queries are filtered by the profile's exact Minecraf
 
 ## Error propagation and logging
 
-Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
+Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity is initialized when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
 
 ## Future architecture (not implemented)
 
