@@ -6,6 +6,8 @@ import { ModManager } from "./components/ModManager";
 import { StatusLog } from "./components/StatusLog";
 import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
+type View = "home" | "profiles" | "mods" | "settings";
+
 const initialStatus: LauncherStatus = { phase: "ready", message: "Loading Flint…" };
 const busyPhases = new Set(["preparing", "downloading", "launching", "running"]);
 
@@ -13,7 +15,17 @@ function readableError(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
-  return "An unexpected error occurred.";
+  return "Something went wrong. Try again, then check the launcher log if the problem continues.";
+}
+
+function formatPreset(profile: Profile): string {
+  if (profile.loader === "vanilla") return "Vanilla";
+  return profile.preset.charAt(0).toUpperCase() + profile.preset.slice(1);
+}
+
+function formatLastPlayed(value?: string): string {
+  if (!value) return "Never played";
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
 export default function App() {
@@ -23,6 +35,7 @@ export default function App() {
   const [javaRuntimes, setJavaRuntimes] = useState<JavaInfo[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [editing, setEditing] = useState(false);
+  const [view, setView] = useState<View>("home");
   const [status, setStatus] = useState<LauncherStatus[]>([initialStatus]);
   const selected = profiles.find((profile) => profile.id === selectedId);
   const currentPhase = status.at(-1)?.phase ?? "ready";
@@ -57,9 +70,9 @@ export default function App() {
 
   const playLabel = useMemo(() => {
     const labels: Partial<Record<LauncherStatus["phase"], string>> = {
-      preparing: "PREPARING…", downloading: "DOWNLOADING…", launching: "LAUNCHING…", running: "RUNNING",
+      preparing: "Preparing…", downloading: "Downloading…", launching: "Launching…", running: "Minecraft is running",
     };
-    return labels[currentPhase] ?? "PLAY";
+    return labels[currentPhase] ?? "Play";
   }, [currentPhase]);
 
   async function saveProfile(input: ProfileInput) {
@@ -68,7 +81,7 @@ export default function App() {
       setProfiles((items) => [...items.filter((item) => item.id !== saved.id), saved]);
       setSelectedId(saved.id);
       setEditing(false);
-      setStatus((items) => [...items, { phase: "ready", message: "Profile “" + saved.name + "” saved." }]);
+      setStatus((items) => [...items, { phase: "ready", message: `Profile “${saved.name}” saved.` }]);
       if (input.preset === "performance" || input.preset === "visuals") {
         setStatus((items) => [...items, { phase: "downloading", message: "Installing compatible preset mods…" }]);
         await api.applyProfilePreset(saved.id);
@@ -85,14 +98,14 @@ export default function App() {
       const copy = await api.duplicateProfile(selected.id);
       setProfiles((items) => [...items, copy]);
       setSelectedId(copy.id);
-      setStatus((items) => [...items, { phase: "ready", message: "Created isolated profile “" + copy.name + "”." }]);
+      setStatus((items) => [...items, { phase: "ready", message: `Created isolated profile “${copy.name}”.` }]);
     } catch (error) {
       setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
     }
   }
 
   async function deleteSelected() {
-    if (!selected || !window.confirm("Delete “" + selected.name + "” and its isolated instance files? This cannot be undone.")) return;
+    if (!selected || !window.confirm(`Delete “${selected.name}” and its isolated instance files? This cannot be undone.`)) return;
     try {
       await api.deleteProfile(selected.id);
       const remaining = profiles.filter((profile) => profile.id !== selected.id);
@@ -117,7 +130,7 @@ export default function App() {
 
   async function launch() {
     if (!selected) return;
-    setStatus((items) => [...items, { phase: "preparing", message: "Preparing " + selected.minecraftVersion + "…" }]);
+    setStatus((items) => [...items, { phase: "preparing", message: `Preparing Minecraft ${selected.minecraftVersion}…` }]);
     try {
       await api.launch(selected.id);
       if (settings?.behaviorWhileRunning === "minimize") await getCurrentWindow().minimize();
@@ -127,91 +140,187 @@ export default function App() {
     }
   }
 
+  function beginCreate() {
+    setSelectedId("");
+    setEditing(true);
+    setView("profiles");
+  }
+
+  function selectView(next: View) {
+    setView(next);
+    setEditing(false);
+  }
+
   return (
-    <main className="shell">
-      <header>
-        <div className="brand-mark" aria-hidden="true">F</div>
-        <div><h1>FLINT</h1><p>Instance-based Minecraft launcher</p></div>
-        <span className="milestone">MILESTONE 2</span>
-      </header>
-      <nav className="primary-nav" aria-label="Main navigation">
-        <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Home</button>
-        <button onClick={() => document.getElementById("profiles")?.scrollIntoView({ behavior: "smooth" })}>Profiles</button>
-        <button onClick={() => document.getElementById("mods")?.scrollIntoView({ behavior: "smooth" })}>Mods</button>
-        <button onClick={() => document.getElementById("settings")?.scrollIntoView({ behavior: "smooth" })}>Settings</button>
-      </nav>
-      <div className="layout">
-        <section className="launcher-card" id="profiles">
-          <div className="card-title"><span>Offline profile</span><span className="local-badge">LOCAL</span></div>
-          {editing || !selected ? (
-            <ProfileForm profile={editing ? selected : undefined} disabled={busy} versions={versions}
-              defaultMemoryMb={settings?.defaultMemoryMb ?? 2048} onSave={saveProfile}
-              onCancel={() => { setEditing(false); setSelectedId((id) => id || profiles[0]?.id || ""); }} />
-          ) : (
-            <>
-              <label>Profile
+    <main className="app-shell">
+      <aside className="sidebar">
+        <div className="brand-lockup">
+          <div className="brand-mark" aria-hidden="true">F</div>
+          <div><strong>Flint</strong><span>Launcher</span></div>
+        </div>
+        <nav className="primary-nav" aria-label="Main navigation">
+          {(["home", "profiles", "mods", "settings"] as View[]).map((item) => (
+            <button key={item} className={view === item ? "active" : ""} onClick={() => selectView(item)} aria-current={view === item ? "page" : undefined}>
+              <span className="nav-dot" aria-hidden="true" />{item.charAt(0).toUpperCase() + item.slice(1)}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <span>Flint 0.2.0</span>
+          <small>Offline launcher</small>
+        </div>
+      </aside>
+
+      <section className="app-content">
+        <header className="topbar">
+          <div><span className="connection-dot" />Local mode</div>
+          <button className="player-chip" onClick={() => setView("profiles")} disabled={!selected}>
+            <span className="player-avatar" aria-hidden="true">{selected?.username.charAt(0).toUpperCase() || "?"}</span>
+            <span><small>Playing as</small><strong>{selected?.username ?? "No profile"}</strong></span>
+          </button>
+        </header>
+
+        <div className="view-content">
+          {view === "home" && (
+            <div className="home-view">
+              <div className="page-heading">
+                <span className="eyebrow">Ready when you are</span>
+                <h1>Play Minecraft your way.</h1>
+                <p>Choose an isolated profile and Flint will handle the rest.</p>
+              </div>
+              {selected ? (
+                <section className="play-hero">
+                  <div className="hero-copy">
+                    <span className="eyebrow">Selected profile</span>
+                    <h2>{selected.name}</h2>
+                    <div className="profile-tags">
+                      <span>Minecraft {selected.minecraftVersion}</span>
+                      <span>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}</span>
+                      {selected.loader === "fabric" && <span>{formatPreset(selected)} preset</span>}
+                    </div>
+                  </div>
+                  <label className="profile-switcher">Profile
+                    <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
+                      {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                    </select>
+                  </label>
+                  <button className="play-button" disabled={busy} onClick={launch}>
+                    <span className="play-icon" aria-hidden="true">▶</span>
+                    <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `as ${selected.username}`}</small></span>
+                  </button>
+                </section>
+              ) : (
+                <section className="empty-state">
+                  <div className="empty-mark" aria-hidden="true">F</div>
+                  <h2>Create your first profile</h2>
+                  <p>Profiles keep worlds, settings, and mods isolated from one another.</p>
+                  <button className="primary-button" onClick={beginCreate}>Create profile</button>
+                </section>
+              )}
+              <div className="home-grid">
+                <StatusLog entries={status} />
+                <section className="quiet-panel">
+                  <span className="eyebrow">At a glance</span>
+                  <dl>
+                    <div><dt>Profile</dt><dd>{selected?.name ?? "Not selected"}</dd></div>
+                    <div><dt>Last played</dt><dd>{formatLastPlayed(selected?.lastPlayedAt)}</dd></div>
+                    <div><dt>Java</dt><dd>{javaRuntimes.length ? `Java ${javaRuntimes.map((runtime) => runtime.majorVersion).join(", ")}` : "Not detected"}</dd></div>
+                  </dl>
+                </section>
+              </div>
+            </div>
+          )}
+
+          {view === "profiles" && (
+            <div>
+              <div className="page-heading page-heading-row">
+                <div><span className="eyebrow">Your game, separated</span><h1>Profiles</h1><p>Each profile keeps its own worlds, configs, and mods.</p></div>
+                {!editing && <button className="primary-button" onClick={beginCreate} disabled={busy}>New profile</button>}
+              </div>
+              {editing ? (
+                <section className="form-surface">
+                  <div className="section-heading"><div><span className="eyebrow">Profile setup</span><h2>{selected ? `Edit ${selected.name}` : "Create a profile"}</h2></div></div>
+                  <ProfileForm profile={selected} disabled={busy} versions={versions} defaultMemoryMb={settings?.defaultMemoryMb ?? 2048}
+                    onSave={saveProfile} onCancel={() => { setEditing(false); setSelectedId((id) => id || profiles[0]?.id || ""); }} />
+                </section>
+              ) : (
+                <>
+                  <div className="profile-grid">
+                    {profiles.map((profile) => (
+                      <button className={`profile-card ${profile.id === selectedId ? "selected" : ""}`} key={profile.id} onClick={() => setSelectedId(profile.id)}>
+                        <span className="profile-card-icon" aria-hidden="true">{profile.loader === "fabric" ? "F" : "V"}</span>
+                        <span className="profile-card-copy"><strong>{profile.name}</strong><small>Minecraft {profile.minecraftVersion} · {profile.loader === "fabric" ? "Fabric" : "Vanilla"}</small><small>{formatLastPlayed(profile.lastPlayedAt)}</small></span>
+                        <span className="selection-mark" aria-hidden="true">✓</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selected && (
+                    <section className="profile-detail">
+                      <div><span className="eyebrow">Selected</span><h2>{selected.name}</h2><p>{selected.username} · {selected.memoryMb} MB RAM · {formatPreset(selected)}</p></div>
+                      <div className="profile-actions">
+                        <button className="secondary-button" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
+                        <button className="secondary-button" onClick={duplicateSelected} disabled={busy}>Duplicate</button>
+                        <button className="danger-button" onClick={deleteSelected} disabled={busy}>Delete</button>
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {view === "mods" && (
+            <div>
+              <div className="page-heading"><span className="eyebrow">Powered by Modrinth</span><h1>Mods</h1><p>Discover compatible Fabric mods for the selected profile.</p></div>
+              <label className="context-select">Manage mods for
                 <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
-                  {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                  {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} · {profile.minecraftVersion}</option>)}
                 </select>
               </label>
-              <div className="profile-summary">
-                <div><span>Username</span><strong>{selected.username}</strong></div>
-                <div><span>Version</span><strong>{selected.minecraftVersion}</strong></div>
-                <div><span>Loader</span><strong>{selected.loader === "fabric" ? "Fabric " + selected.fabricLoaderVersion : "Vanilla"}</strong></div>
-                <div><span>Memory</span><strong>{selected.memoryMb} MB</strong></div>
-              </div>
-              <div className="profile-actions">
-                <button className="icon-button" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
-                <button className="icon-button" onClick={() => { setSelectedId(""); setEditing(true); }} disabled={busy}>New</button>
-                <button className="icon-button" onClick={duplicateSelected} disabled={busy}>Duplicate</button>
-                <button className="danger-button" onClick={deleteSelected} disabled={busy}>Delete</button>
-              </div>
-              <button className="play-button" disabled={busy} onClick={launch}>{playLabel}<span>▶</span></button>
-              <p className="offline-note">Offline identity only. Online-mode servers require authentication, which is outside this milestone.</p>
-              <div id="mods"><ModManager key={selected.id} profile={selected} disabled={busy}
+              {selected ? <ModManager key={selected.id} profile={selected} disabled={busy}
                 onMessage={(message, failed) => setStatus((items) => [...items, { phase: failed ? "failed" : "ready", message }])} />
-              </div>
-            </>
+                : <section className="empty-state"><h2>No profile selected</h2><p>Create a Fabric profile before installing mods.</p><button className="primary-button" onClick={beginCreate}>Create profile</button></section>}
+            </div>
           )}
-        </section>
-        <aside>
-          <section className="runtime-card">
-            <span>Java runtimes</span>
-            <strong>{javaRuntimes.length ? javaRuntimes.map((runtime) => "Java " + runtime.majorVersion).join(" · ") : "None detected"}</strong>
-            <small>{javaRuntimes[0]?.description ?? "Install a compatible 64-bit Java runtime"}</small>
-          </section>
-          {settings && (
-            <section className="settings-card" id="settings">
-              <div className="status-heading">Launcher settings</div>
-              <label className="checkbox-row"><input type="checkbox" checked={settings.showSnapshots}
-                onChange={(event) => setSettings({ ...settings, showSnapshots: event.target.checked })} /> Show snapshots</label>
-              <label className="checkbox-row"><input type="checkbox" checked={settings.discordRichPresence}
-                onChange={(event) => setSettings({ ...settings, discordRichPresence: event.target.checked })} /> Discord Rich Presence</label>
-              <label className="checkbox-row"><input type="checkbox" checked={settings.automaticJava}
-                onChange={(event) => setSettings({ ...settings, automaticJava: event.target.checked })} /> Automatic Java selection</label>
-              <label>Default RAM (MB)<input type="number" min={512} max={32768} step={256} value={settings.defaultMemoryMb}
-                onChange={(event) => setSettings({ ...settings, defaultMemoryMb: Number(event.target.value) })} /></label>
-              <label>Manual Java executable<input value={settings.manualJavaPath ?? ""} placeholder="C:\Program Files\Java\bin\java.exe"
-                disabled={settings.automaticJava}
-                onChange={(event) => setSettings({ ...settings, manualJavaPath: event.target.value || undefined })} /></label>
-              <div className="resolution-row">
-                <label>Width<input type="number" min={640} max={7680} value={settings.resolutionWidth}
-                  onChange={(event) => setSettings({ ...settings, resolutionWidth: Number(event.target.value) })} /></label>
-                <label>Height<input type="number" min={480} max={4320} value={settings.resolutionHeight}
-                  onChange={(event) => setSettings({ ...settings, resolutionHeight: Number(event.target.value) })} /></label>
+
+          {view === "settings" && (settings ? (
+            <div>
+              <div className="page-heading"><span className="eyebrow">Make Flint yours</span><h1>Settings</h1><p>Safe defaults for Minecraft and the launcher.</p></div>
+              <div className="settings-stack">
+                <section className="settings-section">
+                  <div className="settings-section-title"><span>Minecraft</span><small>Game runtime and display</small></div>
+                  <div className="settings-fields">
+                    <label>Default RAM <span className="field-hint">MB</span><input type="number" min={512} max={32768} step={256} value={settings.defaultMemoryMb} onChange={(event) => setSettings({ ...settings, defaultMemoryMb: Number(event.target.value) })} /></label>
+                    <div className="resolution-row">
+                      <label>Width<input type="number" min={640} max={7680} value={settings.resolutionWidth} onChange={(event) => setSettings({ ...settings, resolutionWidth: Number(event.target.value) })} /></label>
+                      <label>Height<input type="number" min={480} max={4320} value={settings.resolutionHeight} onChange={(event) => setSettings({ ...settings, resolutionHeight: Number(event.target.value) })} /></label>
+                    </div>
+                    <label className="toggle-row"><span><strong>Show snapshots</strong><small>Include Mojang snapshot versions when creating profiles.</small></span><input type="checkbox" checked={settings.showSnapshots} onChange={(event) => setSettings({ ...settings, showSnapshots: event.target.checked })} /></label>
+                  </div>
+                </section>
+                <section className="settings-section">
+                  <div className="settings-section-title"><span>Launcher</span><small>Presence and window behavior</small></div>
+                  <div className="settings-fields">
+                    <label className="toggle-row"><span><strong>Discord Rich Presence</strong><small>Share only Flint and Minecraft activity—never usernames or servers.</small></span><input type="checkbox" checked={settings.discordRichPresence} onChange={(event) => setSettings({ ...settings, discordRichPresence: event.target.checked })} /></label>
+                    <label>While Minecraft runs<select value={settings.behaviorWhileRunning} onChange={(event) => setSettings({ ...settings, behaviorWhileRunning: event.target.value as LauncherSettings["behaviorWhileRunning"] })}><option value="keepOpen">Keep Flint open</option><option value="minimize">Minimize Flint</option><option value="hide">Hide Flint</option></select></label>
+                  </div>
+                </section>
+                <section className="settings-section">
+                  <div className="settings-section-title"><span>Advanced</span><small>Java and diagnostics</small></div>
+                  <div className="settings-fields">
+                    <label className="toggle-row"><span><strong>Automatic Java selection</strong><small>Use Mojang metadata to choose an installed 64-bit runtime.</small></span><input type="checkbox" checked={settings.automaticJava} onChange={(event) => setSettings({ ...settings, automaticJava: event.target.checked })} /></label>
+                    <label>Manual Java executable<input value={settings.manualJavaPath ?? ""} placeholder="C:\\Program Files\\Java\\bin\\java.exe" disabled={settings.automaticJava} onChange={(event) => setSettings({ ...settings, manualJavaPath: event.target.value || undefined })} /></label>
+                    <div className="runtime-list"><span className="eyebrow">Detected runtimes</span>{javaRuntimes.length ? javaRuntimes.map((runtime) => <div key={runtime.path}><strong>Java {runtime.majorVersion}</strong><small title={runtime.path}>{runtime.description}</small></div>) : <p>No compatible 64-bit Java runtimes detected.</p>}</div>
+                  </div>
+                </section>
               </div>
-              <label>While Minecraft runs<select value={settings.behaviorWhileRunning}
-                onChange={(event) => setSettings({ ...settings, behaviorWhileRunning: event.target.value as LauncherSettings["behaviorWhileRunning"] })}>
-                <option value="keepOpen">Keep Flint open</option>
-                <option value="minimize">Minimize Flint</option>
-                <option value="hide">Hide Flint</option>
-              </select></label>
-              <button className="save-settings" onClick={() => saveLauncherSettings(settings)}>Save settings</button>
-            </section>
-          )}
-          <StatusLog entries={status} />
-        </aside>
-      </div>
+              <div className="settings-save"><span>Changes apply after saving.</span><button className="primary-button" onClick={() => saveLauncherSettings(settings)}>Save settings</button></div>
+            </div>
+          ) : (
+            <section className="empty-state"><h2>Settings unavailable</h2><p>Flint could not load launcher settings. Return Home for the current error and try restarting Flint.</p></section>
+          ))}
+        </div>
+      </section>
     </main>
   );
 }
