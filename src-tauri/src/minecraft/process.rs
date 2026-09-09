@@ -58,8 +58,7 @@ pub fn launch(
         if let Ok(mut presence) = state.presence.lock() {
             presence.update(
                 settings.discord_rich_presence,
-                &format!("Playing Minecraft {}", profile.minecraft_version),
-                "In game",
+                crate::presence::PresenceState::Playing(profile.minecraft_version.clone()),
             );
         }
     }
@@ -85,7 +84,7 @@ pub fn launch(
             ),
         }
         if let Ok(mut presence) = state.presence.lock() {
-            presence.update(presence_enabled, "Browsing Flint", "Ready to play");
+            presence.update(presence_enabled, crate::presence::PresenceState::Browsing);
         }
         state.busy.store(false, Ordering::Release);
     });

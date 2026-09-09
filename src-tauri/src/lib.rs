@@ -127,9 +127,17 @@ fn get_settings(paths: State<'_, AppPaths>) -> Result<settings::LauncherSettings
 #[tauri::command]
 fn save_settings(
     paths: State<'_, AppPaths>,
+    state: State<'_, Arc<LauncherState>>,
     settings: settings::LauncherSettings,
 ) -> Result<settings::LauncherSettings> {
-    settings::save(&paths, settings)
+    let saved = settings::save(&paths, settings)?;
+    if let Ok(mut presence) = state.presence.lock() {
+        presence.update(
+            saved.discord_rich_presence,
+            presence::PresenceState::Browsing,
+        );
+    }
+    Ok(saved)
 }
 
 #[tauri::command]
@@ -161,8 +169,7 @@ async fn launch_minecraft(
         if let Ok(mut presence) = state.presence.lock() {
             presence.update(
                 launcher_settings.discord_rich_presence,
-                "Preparing Minecraft",
-                &format!("Minecraft {}", profile.minecraft_version),
+                presence::PresenceState::Preparing,
             );
         }
         install::emit(&app, "preparing", "Reading Mojang version metadata…", None);
@@ -199,8 +206,7 @@ async fn launch_minecraft(
         if let Ok(mut presence) = state.presence.lock() {
             presence.update(
                 launcher_settings.discord_rich_presence,
-                "Downloading Minecraft",
-                &format!("Minecraft {}", profile.minecraft_version),
+                presence::PresenceState::Downloading(profile.minecraft_version.clone()),
             );
         }
         if profile.loader == profiles::Loader::Fabric {
@@ -241,8 +247,7 @@ async fn launch_minecraft(
         if let Ok(mut presence) = state.presence.lock() {
             presence.update(
                 launcher_settings.discord_rich_presence,
-                "Launching Minecraft",
-                &format!("Minecraft {}", profile.minecraft_version),
+                presence::PresenceState::Launching(profile.minecraft_version.clone()),
             );
         }
         minecraft::process::launch(
@@ -283,6 +288,14 @@ pub fn run() {
         }))
         .setup(move |app| {
             app.manage(guard);
+            let paths = app.state::<AppPaths>();
+            let state = app.state::<Arc<LauncherState>>();
+            let enabled = settings::load(&paths)
+                .map(|settings| settings.discord_rich_presence)
+                .unwrap_or(false);
+            if let Ok(mut presence) = state.presence.lock() {
+                presence.update(enabled, presence::PresenceState::Browsing);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
