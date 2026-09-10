@@ -137,14 +137,7 @@ async fn preview_existing_setup(
     profile_id: String,
 ) -> Result<importer::ImportPreview> {
     let paths = paths.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        importer::preview(&paths, std::path::Path::new(&source), &profile_id)
-    })
-    .await
-    .map_err(|error| {
-        AppError::new("import_scan_failed", "The setup scan stopped unexpectedly.")
-            .with_detail(error.to_string())
-    })?
+    importer::preview_resolved(&paths, std::path::Path::new(&source), &profile_id).await
 }
 
 #[tauri::command]
@@ -153,12 +146,7 @@ async fn import_existing_setup(
     request: importer::ImportRequest,
 ) -> Result<importer::ImportResult> {
     let paths = paths.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || importer::apply(&paths, request))
-        .await
-        .map_err(|error| {
-            AppError::new("import_failed", "The setup import stopped unexpectedly.")
-                .with_detail(error.to_string())
-        })?
+    importer::apply(&paths, request).await
 }
 
 #[tauri::command]

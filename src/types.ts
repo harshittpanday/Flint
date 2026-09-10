@@ -111,7 +111,7 @@ export interface ProfileCosmetics {
 }
 
 export type ImportCategory = "settings" | "servers" | "resourcePacks" | "shaderPacks" | "configs" | "mods" | "worlds";
-export type ImportCompatibility = "compatible" | "unknown";
+export type ImportCompatibility = "compatible" | "resolvable" | "incompatible" | "unknown";
 
 export interface ImportItem {
   category: ImportCategory;
@@ -120,6 +120,10 @@ export interface ImportItem {
   compatibility: ImportCompatibility;
   detail: string;
   selectedByDefault: boolean;
+  modId?: string;
+  modVersion?: string;
+  environment?: string;
+  resolution?: { projectId: string; title: string; versionNumber: string };
 }
 
 export interface ImportPreview {
@@ -132,5 +136,6 @@ export interface ImportPreview {
 
 export interface ImportResult {
   filesCopied: number;
+  modsReinstalled: number;
   itemsSkipped: number;
 }

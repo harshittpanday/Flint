@@ -84,6 +84,61 @@ pub struct PresetMod {
     pub version_number: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportedModResolution {
+    pub project_id: String,
+    pub title: String,
+    pub version_number: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ImportedHashMatch {
+    pub title: String,
+    pub compatible: Option<ImportedModResolution>,
+}
+
+pub async fn resolve_imported_hash(
+    sha1: &str,
+    game_version: &str,
+) -> Result<Option<ImportedHashMatch>> {
+    let response = client()?
+        .get(format!("{API}/version_file/{sha1}"))
+        .query(&[("algorithm", "sha1")])
+        .send()
+        .await?;
+    if response.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    let matched: ModVersion = response.error_for_status()?.json().await?;
+    let project = get_project(&matched.project_id).await?;
+    let compatible = find_compatible_version(&matched.project_id, game_version)
+        .await?
+        .map(|version| ImportedModResolution {
+            project_id: version.project_id,
+            title: project.title.clone(),
+            version_number: version.version_number,
+        });
+    Ok(Some(ImportedHashMatch {
+        title: project.title,
+        compatible,
+    }))
+}
+
+pub async fn resolve_imported_project(
+    project_id: &str,
+    game_version: &str,
+) -> Result<Option<ImportedModResolution>> {
+    let project = get_project(project_id).await?;
+    Ok(find_compatible_version(project_id, game_version)
+        .await?
+        .map(|version| ImportedModResolution {
+            project_id: version.project_id,
+            title: project.title,
+            version_number: version.version_number,
+        }))
+}
+
 pub async fn search(query: &str, game_version: &str) -> Result<Vec<ModProject>> {
     let facets = serde_json::to_string(&vec![
         vec!["project_type:mod".to_string()],
@@ -211,6 +266,20 @@ pub fn remove(paths: &AppPaths, profile_id: &str, project_id: &str) -> Result<Ve
 }
 
 async fn compatible_version(project_id: &str, game_version: &str) -> Result<ModVersion> {
+    find_compatible_version(project_id, game_version)
+        .await?
+        .ok_or_else(|| {
+            AppError::new(
+                "mod_incompatible",
+                format!("No Fabric version of this mod supports Minecraft {game_version}."),
+            )
+        })
+}
+
+async fn find_compatible_version(
+    project_id: &str,
+    game_version: &str,
+) -> Result<Option<ModVersion>> {
     let loaders = serde_json::to_string(&["fabric"])?;
     let game_versions = serde_json::to_string(&[game_version])?;
     let versions: Vec<ModVersion> = client()?
@@ -225,12 +294,7 @@ async fn compatible_version(project_id: &str, game_version: &str) -> Result<ModV
         .error_for_status()?
         .json()
         .await?;
-    versions.into_iter().next().ok_or_else(|| {
-        AppError::new(
-            "mod_incompatible",
-            format!("No Fabric version of this mod supports Minecraft {game_version}."),
-        )
-    })
+    Ok(versions.into_iter().next())
 }
 
 async fn get_project(id: &str) -> Result<ProjectDetail> {
@@ -398,5 +462,23 @@ mod tests {
         assert!(performance.iter().any(|item| item.slug == "lithium"));
         assert!(performance.iter().any(|item| item.slug == "entityculling"));
         assert!(visuals.iter().any(|item| item.slug == "iris"));
+    }
+
+    #[tokio::test]
+    async fn live_import_hash_resolution_when_enabled() {
+        if std::env::var_os("FLINT_LIVE_TEST").is_none() {
+            return;
+        }
+        let version = find_compatible_version("sodium", "1.21.11")
+            .await
+            .unwrap()
+            .expect("Sodium should have a Fabric 1.21.11 version");
+        let hash = &version.files.first().expect("version file").hashes.sha1;
+        let resolved = resolve_imported_hash(hash, "1.21.11")
+            .await
+            .unwrap()
+            .expect("hash should identify a Modrinth version");
+        assert_eq!(resolved.title, "Sodium");
+        assert!(resolved.compatible.is_some());
     }
 }

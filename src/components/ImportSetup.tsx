@@ -24,6 +24,12 @@ export function ImportSetup({ profile, onClose }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const categories = useMemo(() => preview ? [...new Set(preview.items.map((item) => item.category))] : [], [preview]);
+  const counts = useMemo(() => ({
+    compatible: preview?.items.filter((item) => item.compatibility === "compatible").length ?? 0,
+    resolvable: preview?.items.filter((item) => item.compatibility === "resolvable").length ?? 0,
+    unknown: preview?.items.filter((item) => item.compatibility === "unknown").length ?? 0,
+    incompatible: preview?.items.filter((item) => item.compatibility === "incompatible").length ?? 0,
+  }), [preview]);
 
   async function scan() {
     const source = await open({ multiple: false, directory: true, title: "Choose an existing Minecraft installation" });
@@ -46,7 +52,7 @@ export function ImportSetup({ profile, onClose }: Props) {
     setMessage("Copying selected content into the isolated profile…");
     try {
       const result = await api.importExistingSetup(preview.source, profile.id, [...selected]);
-      setMessage(`Imported ${result.filesCopied} files. Skipped ${result.itemsSkipped} unselected or uncertain items. The source was not changed.`);
+      setMessage(`Copied ${result.filesCopied} files and reinstalled ${result.modsReinstalled} resolved mods. Skipped ${result.itemsSkipped} unselected, incompatible, or uncertain items. The source was not changed.`);
     } catch (error) {
       setMessage(typeof error === "object" && error && "message" in error ? String(error.message) : "The selected content could not be imported.");
     } finally { setBusy(false); }
@@ -56,13 +62,13 @@ export function ImportSetup({ profile, onClose }: Props) {
     <div className="page-heading"><span className="eyebrow">Migration assistant</span><h2>Import Existing Setup</h2><p>Bring selected content into {profile.name}. Flint never copies credentials, tokens, logs, or caches.</p></div>
     <div className="inline-actions"><button onClick={() => void scan()} disabled={busy}>{preview ? "Choose another folder" : "Choose Minecraft folder"}</button><button className="secondary" onClick={onClose} disabled={busy}>Close</button></div>
     {preview && <div className="import-preview">
-      <div className="import-summary"><strong>Existing installation detected</strong><span>Target: Minecraft {preview.minecraftVersion} · {preview.loader === "fabric" ? "Fabric" : "Vanilla"}</span><small title={preview.source}>{preview.source}</small></div>
+      <div className="import-summary"><strong>Existing installation detected</strong><span>Target: Minecraft {preview.minecraftVersion} · {preview.loader === "fabric" ? "Fabric" : "Vanilla"}</span><div className="import-counts"><span>Compatible <b>{counts.compatible}</b></span><span>Can reinstall <b>{counts.resolvable}</b></span><span>Needs review <b>{counts.unknown}</b></span><span>Incompatible <b>{counts.incompatible}</b></span></div><small title={preview.source}>{preview.source}</small></div>
       {categories.map((category) => {
         const items = preview.items.filter((item) => item.category === category);
-        const compatible = items.filter((item) => item.compatibility === "compatible").length;
+        const compatible = items.filter((item) => item.compatibility === "compatible" || item.compatibility === "resolvable").length;
         return <label className="import-category" key={category}>
           <input type="checkbox" checked={selected.has(category)} disabled={busy || compatible === 0} onChange={(event) => setSelected((current) => { const next = new Set(current); if (event.target.checked) next.add(category); else next.delete(category); return next; })} />
-          <span><strong>{labels[category]}</strong><small>{compatible} compatible · {items.length - compatible} needs review</small>{items.map((item) => <em className={item.compatibility} key={item.relativePath}>{item.compatibility === "compatible" ? "✓" : "⚠"} {item.name} — {item.detail}</em>)}</span>
+          <span><strong>{labels[category]}</strong><small>{compatible} ready · {items.length - compatible} skipped unless resolved</small>{items.map((item) => <em className={item.compatibility} key={item.relativePath}>{item.compatibility === "compatible" ? "✓" : item.compatibility === "resolvable" ? "↻" : item.compatibility === "incompatible" ? "×" : "⚠"} {item.name} — {item.detail}</em>)}</span>
         </label>;
       })}
       <button className="primary-button" onClick={() => void apply()} disabled={busy || selected.size === 0}>Import selected content</button>
