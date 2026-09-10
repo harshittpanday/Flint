@@ -6,9 +6,13 @@ Flint/
 │   ├── components/
 │   │   ├── ModManager.tsx       Modrinth search/install/remove foundation
 │   │   ├── ProfileForm.tsx      Offline profile editor and validation feedback
+│   │   ├── ImportSetup.tsx      Read-only installation scan, preview, and selective import
+│   │   ├── CosmeticsManager.tsx Profile-local skin/cape preview and preferences
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
 │   ├── App.tsx                  Consumer navigation, settings, profiles, and launch state
+│   ├── artwork.ts               Data-driven release artwork selection and fallback
+│   ├── assets/                  Optimized launcher logo/hero assets
 │   ├── types.ts                 Shared frontend payload shapes
 │   ├── validation.ts            Testable frontend input rules
 │   └── styles.css               Flint's Windows desktop layout and visual system
@@ -29,13 +33,16 @@ Flint/
 │   │   ├── java.rs              Compatible Windows Java discovery/validation
 │   │   ├── paths.rs             OS app-data and cache/instance layout
 │   │   ├── profiles.rs          Validated JSON profile persistence
+│   │   ├── importer.rs          Untrusted setup inspection and bounded selective copying
+│   │   ├── cosmetics.rs         PNG validation and isolated cosmetic persistence
 │   │   ├── settings.rs          Validated launcher preferences
-│   │   ├── presence.rs          Optional privacy-safe Discord RPC adapter
+│   │   ├── presence.rs          Optional privacy-safe Discord RPC adapter and public actions
 │   │   ├── process_command.rs   Windows release child-process console policy
 │   │   ├── lib.rs               Tauri state, commands, logging, composition root
 │   │   └── main.rs              Desktop binary entry point
 │   ├── Cargo.toml               Rust crate dependencies and targets
 │   └── tauri.conf.json          Window, build, bundle, and CSP configuration
+├── branding/                    Canonical Flint logo source
 ├── ARCHITECTURE.md              Current and future system design with rationale
 ├── CHECKBOX.md                  Evidence-based product roadmap
 ├── CONTRIBUTING.md              Development and quality rules

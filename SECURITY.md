@@ -6,7 +6,7 @@ This project does not yet publish a security email or hosted disclosure channel.
 
 ## Current scope
 
-Milestone 2 stores non-secret offline profile/settings metadata and downloads public artifacts from Mojang, Fabric, and Modrinth HTTPS endpoints. TLS verification remains enabled. Downloads are checked against publisher SHA-1 values and sizes where available before use. Each profile has an isolated mutable game directory and managed-mod manifest.
+Flint stores non-secret offline profile/settings/cosmetics metadata and downloads public artifacts from Mojang, Fabric, and Modrinth HTTPS endpoints. TLS verification remains enabled. Downloads are checked against publisher SHA-1 values and sizes where available before use. Each profile has an isolated mutable game directory and managed-mod manifest.
 
 Local/offline identities are not authenticated sessions. Flint does not create Microsoft tokens, forge sessions, or bypass online-mode server authentication. Credential-bearing features are not implemented.
 
@@ -36,3 +36,5 @@ AutoAuth requires a threat model before code. The companion must authenticate lo
 Use maintained dependencies, retain lockfiles, review advisories, and do not disable TLS validation. Minecraft metadata remains untrusted input even when delivered by an official endpoint: paths from archives are constrained during extraction and all metadata errors must fail closed.
 
 Fabric Maven coordinates and Modrinth filenames are untrusted. Flint constrains generated paths, rejects traversal/non-JAR mod names, and only removes files recorded in the selected instance's managed manifest. Discord presence receives only launcher state and game version; server addresses, usernames, and profile names are not sent. The numeric Discord Application ID is public configuration, but bot tokens and client secrets must never be added. RPC connection failure must never block Minecraft.
+
+Existing installations are untrusted input. The importer rejects Flint-managed/non-Minecraft sources, ignores symlinks, copies only known categories, applies a 512 MB per-file bound, and never scans or copies launcher accounts, authentication databases, tokens, logs, or caches. It does not mutate the source and never executes JARs. Uncertain mod metadata is displayed as a warning and skipped. Cosmetic imports accept PNG only, are capped at 2 MB, validate dimensions, and are copied into the selected UUID instance.

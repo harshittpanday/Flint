@@ -27,6 +27,8 @@ Use `cargo clippy --all-targets --all-features -- -D warnings` when the native t
 
 Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and Modrinth compatibility tests. Discord Rich Presence uses the reviewed public Flint Application ID in source and requires the matching `flint` image asset in the Discord Developer Portal.
 
+Importer and cosmetics changes require adversarial fixtures: verify the external source is byte-for-byte unchanged, unsafe/managed paths are rejected, uncertain mods remain unselected, PNG dimensions are validated, and data cannot cross profile IDs. Never execute imported JARs in tests or production. Keep optional Flint Client state out of the Minecraft launch path until a separately reviewed client artifact exists.
+
 ## Conventions
 
 - Keep React responsible for presentation, forms, status, and typed calls—not direct launcher filesystem or process logic.

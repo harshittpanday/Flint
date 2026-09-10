@@ -40,6 +40,20 @@
 - [x] Create, edit, duplicate, delete, select, validate, and persist offline profiles
 - [x] Generate stable profile IDs and offline player UUIDs
 - [x] Require confirmation before profile/instance deletion
+- [x] Persist optional Flint Client lifecycle state with backward-compatible defaults
+
+## Setup Import
+
+- [x] Scan a selected external Minecraft installation without modifying it
+- [x] Preview/select settings, servers, resources, shaders, configs, compatible mods, and opt-in worlds
+- [x] Reject Flint-managed sources and skip uncertain mods
+- [ ] Resolve mapped imported mods through Modrinth when identity can be established reliably
+
+## Cosmetics
+
+- [x] Validate/store/preview/reset local skin and cape PNGs per profile
+- [x] Persist Classic/Slim model and cape enabled state
+- [ ] Apply cosmetics in game through an optional Flint Client
 
 ## Instances
 
@@ -101,11 +115,14 @@
 
 - [x] Failure-isolated, privacy-safe presence adapter and disable setting
 - [x] Configure the reviewed public Flint Discord Application ID
+- [x] Add official Download Flint and Join Discord presence actions
 - [ ] Live Discord activity verification with a configured Flint application ID/assets
 
 ## UI/UX
 
 - [x] Usable profile, version, Play, runtime, and status interface
+- [x] Apply canonical Flint logo, warm design tokens, optimized hero artwork, and Cosmetics navigation
+- [x] Provide data-driven release artwork fallback
 - [x] Busy/disabled Play states and understandable failures
 - [x] Home/Profile/Mods/Settings navigation and obvious Play action
 - [x] Consumer launcher layout verified at standard and 780×620 browser viewports
@@ -136,6 +153,8 @@
 - [x] Optimized Windows GUI executable with no release console subsystem
 - [x] Tauri x64 MSI and NSIS installer builds
 - [x] Direct rebuilt 0.2.0 executable smoke test (responsive Flint window and exit code 0)
+- [x] Rebuild post-beta x64 NSIS installer with canonical Flint icon
+- [ ] Regenerate post-beta MSI (blocked in remote session: Windows Installer service unavailable to WiX ICE validation)
 - [ ] Code signing
 - [ ] Windows install/uninstall smoke test
 

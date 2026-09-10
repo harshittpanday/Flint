@@ -1,12 +1,14 @@
 # Flint
 
+<img src="branding/flint-logo-source.png" alt="Flint pixel-art logo" width="128" />
+
 Flint is a Windows-first desktop launcher for Minecraft: Java Edition. The project emphasizes a small, clear interface, isolated instances, privacy, and a launcher core that can later support mod loaders without coupling Minecraft installation logic to the UI.
 
 ## Current status
 
-Flint is at **Day 3 release readiness, version 0.2.0**. It extends the verified Milestone 2 launcher with a consumer-focused interface, deduplicated Java discovery, and release-safe Windows child-process handling while preserving dynamic Mojang versions, Fabric, isolated Modrinth mods and presets, and Windows installers.
+Flint is a **post-v0.2.0 beta** consumer Minecraft launcher. The current milestone adds Flint-owned branding, a safer setup migration assistant, and profile-local cosmetics foundations while preserving dynamic Mojang versions, Fabric, isolated Modrinth mods and presets, Discord presence, and release-safe Windows child processes.
 
-The frontend and native test suites, live Fabric/Modrinth metadata checks, optimized Tauri build, and MSI/NSIS packaging pass on Windows. The project owner manually verified the Milestone 1 Minecraft 26.2 main-menu, cache-reuse, and multiplayer baseline. Native UI automation was unavailable for the final 0.2.0 regression run, so this document does **not** claim a new post-change main-menu observation.
+The frontend/native suites, live Fabric/Modrinth metadata checks, optimized Tauri executable, and NSIS packaging pass on Windows. The project owner manually verified the earlier Minecraft 26.2 main-menu, cache-reuse, Fabric, Modrinth, and multiplayer baseline. Native UI automation was unavailable for this post-beta run, so this document does **not** claim a new main-menu or visual workflow observation. The current MSI regeneration is blocked by the remote session's unavailable Windows Installer service; the prior MSI artifact remains but is not a current build result.
 
 Release profiles can select versions dynamically from Mojang's official catalog; snapshots are opt-in. Version 26.2 remains the default and regression baseline. A version must provide a Mojang Java requirement and metadata compatible with Flint's modern/legacy argument parser.
 
@@ -28,6 +30,9 @@ Release profiles can select versions dynamically from Mojang's official catalog;
 - Preview and apply compatible Performance or Visuals presets from live Modrinth metadata.
 - Search, install, list, replace, and remove compatible Fabric mods per isolated profile.
 - Configure RAM, resolution, snapshots, Java selection, Discord presence, and window behavior.
+- Preview and selectively import settings, servers, resources, shaders, configs, explicitly compatible Fabric mods, and opt-in worlds from an existing installation without modifying the source.
+- Validate and store local PNG skins/capes per profile with Classic/Slim and cape-enable preferences.
+- Track a migration-safe optional Flint Client status without making Minecraft launch depend on it.
 - Navigate a polished Home, Profiles, Mods, and Settings interface with keyboard focus, loading, disabled, error, and destructive-confirmation states.
 - Build normal x64 MSI and NSIS Windows installers with Start Menu/uninstall integration supplied by Tauri.
 
@@ -98,6 +103,8 @@ Flint app data/
 - Downloads use bounded concurrency but do not yet offer pause/resume or retry controls.
 - Required Modrinth dependencies are installed, but optional dependency recommendations, conflicts, and mod updates are not yet modeled in the UI.
 - Discord Rich Presence uses Flint's public Application ID `1547183366091051019`. The Discord Developer Portal must retain the registered `flint` image asset; RPC remains optional and failure-isolated when Discord is closed or unavailable.
+- Local cosmetics are not Mojang/Microsoft account cosmetics and currently have no in-game effect. The optional Flint Client Fabric mod, its installer/updater, badge, cosmetics rendering, and module registry remain planned architecture—not shipped functionality.
+- Importer mod compatibility is intentionally conservative: only Fabric JAR metadata that explicitly names the target Minecraft version is copied. Unknown ranges/dependencies are shown as warnings and skipped.
 - MSI and NSIS bundles are unsigned beta artifacts. A post-change vanilla and Fabric main-menu launch still requires manual confirmation.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [TREE.md](TREE.md), and [CHECKBOX.md](CHECKBOX.md) for implementation details and roadmap status.

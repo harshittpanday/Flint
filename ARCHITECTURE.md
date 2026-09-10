@@ -6,7 +6,7 @@ Flint is a Tauri desktop application. React owns presentation and user intent; R
 
 ## React frontend
 
-`src/App.tsx` loads profiles, settings, the Mojang catalog, and Java inventory; it coordinates profile editing, play state, navigation, and window behavior. `ProfileForm` resolves Fabric/preset compatibility before save, while `ModManager` provides the intentionally small Modrinth surface. Components do not know runtime filesystem paths. `src/api.ts` is the typed IPC adapter and `src/types.ts` describes wire payloads.
+`src/App.tsx` loads profiles, settings, the Mojang catalog, and Java inventory; it coordinates profile editing, play state, navigation, and window behavior. `ProfileForm` resolves Fabric/preset compatibility before save, while `ModManager` provides the intentionally small Modrinth surface. `ImportSetup` and `CosmeticsManager` use typed IPC and the scoped Tauri dialog plugin; filesystem validation and copying remain in Rust. `artwork.ts` maps versions to bundled/licensed artwork with a Flint-owned fallback.
 
 The UI still performs immediate validation for good feedback, but Rust repeats all validation because webview input is never trusted across IPC.
 
@@ -21,7 +21,9 @@ The current Tauri capability grants only core main-window behavior. Filesystem a
 `lib.rs` is the composition root, not the launcher implementation. It initializes app-data paths and rotating daily logs, owns the atomic launch guard, and connects commands to focused modules:
 
 - `paths`: deterministic OS application-data layout.
-- `profiles`: validation and durable JSON storage.
+- `profiles`: validation, durable JSON storage, and migration-safe optional-client state.
+- `importer`: bounded, read-only inspection of an external Minecraft directory and selective copying into one instance.
+- `cosmetics`: PNG validation plus isolated skin/cape files and preferences.
 - `settings`: validated launcher preferences with safe defaults.
 - `java`: deduplicated candidate discovery plus real `java -version` execution.
 - `presence`: optional, failure-isolated Discord IPC activity adapter.
@@ -59,6 +61,10 @@ Each profile owns `instances/<id>/game`, so its worlds, options, servers, resour
 
 Profiles are non-secret metadata stored in `profiles/profiles.json`; old Milestone 1 records deserialize with safe defaults. Writes use a sibling temporary file before replacement. Confirmed deletion removes the UUID-addressed profile record and isolated instance directory. Duplicate creates a new UUID and empty isolated game directory rather than copying worlds implicitly.
 
+The importer accepts only a recognizable external Minecraft directory, rejects Flint-managed sources, skips symlinks, bounds individual files, and constructs destinations from known categories. It never reads launcher credential databases. Worlds are off by default. Imported Fabric JARs are opened only as ZIP data; Flint never executes them and copies a mod only when `fabric.mod.json` explicitly matches the target version.
+
+Cosmetics live under `instances/<id>/flint/cosmetics`. PNG headers, dimensions, and size are validated before copying. These are local selections for the future optional client and are never represented as official account entitlements.
+
 ## Fabric and Modrinth
 
 Fabric is an overlay on the prepared vanilla launch plan. Flint retrieves the official Fabric launcher profile, resolves Maven coordinates, obtains missing SHA-1 sidecars, appends verified libraries, merges arguments, and replaces the main class with KnotClient. Vanilla preparation remains unchanged.
@@ -70,6 +76,10 @@ Modrinth search and version queries are filtered by the profile's exact Minecraf
 Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity uses the public Flint Application ID `1547183366091051019`, initializes when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
 
 ## Future architecture (not implemented)
+
+### Optional Flint Client
+
+Profiles now persist a forward-compatible `Not Installed / Installed / Update Available / Enabled / Disabled` state and local cosmetics settings. No Fabric client artifact, installer, updater, badge, renderer, or module registry is shipped yet; launch preparation intentionally ignores this field.
 
 ### Additional loaders and richer mod solving
 

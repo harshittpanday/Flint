@@ -1,5 +1,24 @@
 # Flint development history
 
+## 2026-09-10 — Post-v0.2 beta product milestone
+
+### Implemented
+
+- Adopted the provided pixel-art flint image as the canonical brand source; generated optimized launcher/hero assets and Tauri Windows/platform icon variants.
+- Reworked the launcher palette and Home hero around near-black/charcoal surfaces and a restrained warm Flint accent, with responsive 780px-class layout behavior and a data-driven artwork fallback.
+- Added a read-only existing-setup scanner with explicit preview/selection for settings, servers, resource packs, shaders, configs, conservative Fabric mods, and opt-in worlds. Sources are never modified and credentials/logs/caches are outside the import surface.
+- Added profile-local PNG skin/cape validation, preview, reset, Classic/Slim model choice, and cape enable state. These are honestly labelled local Flint Client cosmetics and do not alter official accounts.
+- Added backward-compatible Flint Client lifecycle state persistence and UI status. The Fabric client itself, installation/update service, in-game badge/cosmetics, and module registry remain architecture-only.
+- Added Discord buttons for the official GitHub latest-release destination and Flint Discord invite while preserving private, failure-isolated activity states.
+
+### Verification and limitations
+
+- Baseline before this milestone: frontend build/lint passed, 4 frontend tests passed, Rust format/check passed, and 21 Rust tests passed.
+- Current automated verification: frontend build/lint passed, 6 frontend tests passed, Rust format/check passed, and 28 Rust tests passed, including live Fabric/Modrinth metadata checks.
+- The optimized `flint.exe` and x64 NSIS installer rebuilt successfully. MSI regeneration reached WiX but failed because this remote Windows session could not access the Windows Installer service (`LGHT0217` / `0x643`); the older MSI was not treated as a new result.
+- The new release executable was started once; it remained alive and created its WebView2 child tree, then Flint and all six descendants were closed by their recorded PID chain. Native UI capture was unavailable, so this is process-level smoke evidence only—not a visual workflow or Minecraft main-menu claim.
+- The new interface was visually inspected in a narrow local browser viewport. Native importer/cosmetics dialogs, live Discord display, and Minecraft main-menu regression require later manual Windows verification; local cosmetics intentionally have no in-game effect yet.
+
 Entries are append-only and record what was true when work was performed.
 
 ## 2026-09-07 — Milestone 1 foundation (0.1.0)
