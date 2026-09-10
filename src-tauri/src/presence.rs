@@ -1,6 +1,7 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 
 const JOIN_DISCORD_URL: &str = "https://discord.gg/atWfHfwjYy";
+const DOWNLOAD_FLINT_URL: &str = "https://github.com/harshittpanday/Flint/releases/latest";
 const DISCORD_APPLICATION_ID: &str = "1547183366091051019";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,10 +81,10 @@ impl Presence {
                     .large_image("flint")
                     .large_text("Flint Launcher"),
             )
-            .buttons(vec![activity::Button::new(
-                "Join Discord",
-                JOIN_DISCORD_URL,
-            )]);
+            .buttons(vec![
+                activity::Button::new("Download Flint", DOWNLOAD_FLINT_URL),
+                activity::Button::new("Join Discord", JOIN_DISCORD_URL),
+            ]);
         if let Some(client) = &mut self.client {
             if let Err(error) = client.set_activity(activity) {
                 tracing::warn!(%error, "Discord presence update failed; presence is disabled for this session");
@@ -102,7 +103,9 @@ impl Default for Presence {
 
 #[cfg(test)]
 mod tests {
-    use super::{Presence, PresenceState, DISCORD_APPLICATION_ID};
+    use super::{
+        Presence, PresenceState, DISCORD_APPLICATION_ID, DOWNLOAD_FLINT_URL, JOIN_DISCORD_URL,
+    };
 
     #[test]
     fn production_application_id_is_configured() {
@@ -129,5 +132,14 @@ mod tests {
     fn disabled_presence_is_non_blocking() {
         let mut presence = Presence::new();
         presence.update(false, PresenceState::Browsing);
+    }
+
+    #[test]
+    fn public_presence_actions_use_official_destinations() {
+        assert_eq!(
+            DOWNLOAD_FLINT_URL,
+            "https://github.com/harshittpanday/Flint/releases/latest"
+        );
+        assert_eq!(JOIN_DISCORD_URL, "https://discord.gg/atWfHfwjYy");
     }
 }
