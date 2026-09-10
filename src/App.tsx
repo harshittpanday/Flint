@@ -4,6 +4,8 @@ import { api } from "./api";
 import { ProfileForm } from "./components/ProfileForm";
 import { ModManager } from "./components/ModManager";
 import { StatusLog } from "./components/StatusLog";
+import { artworkForVersion } from "./artwork";
+import flintLogo from "./assets/flint-logo-256.png";
 import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
 type View = "home" | "profiles" | "mods" | "settings";
@@ -40,6 +42,7 @@ export default function App() {
   const selected = profiles.find((profile) => profile.id === selectedId);
   const currentPhase = status.at(-1)?.phase ?? "ready";
   const busy = busyPhases.has(currentPhase);
+  const artwork = artworkForVersion(selected?.minecraftVersion);
 
   useEffect(() => {
     let active = true;
@@ -155,7 +158,7 @@ export default function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand-lockup">
-          <div className="brand-mark" aria-hidden="true">F</div>
+          <img className="brand-mark" src={flintLogo} alt="" aria-hidden="true" />
           <div><strong>Flint</strong><span>Launcher</span></div>
         </div>
         <nav className="primary-nav" aria-label="Main navigation">
@@ -190,6 +193,7 @@ export default function App() {
               </div>
               {selected ? (
                 <section className="play-hero">
+                  <img className="hero-artwork" src={artwork.hero} alt={artwork.alt} style={{ objectPosition: artwork.position }} />
                   <div className="hero-copy">
                     <span className="eyebrow">Selected profile</span>
                     <h2>{selected.name}</h2>
