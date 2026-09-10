@@ -1,6 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { loadCosmeticPreview } from "../cosmeticPreview";
 import type { Profile, ProfileCosmetics } from "../types";
 
 interface Props {
@@ -22,20 +23,26 @@ export function CosmeticsManager({ profile, disabled }: Props) {
 
   useEffect(() => {
     let active = true;
-    const urls: string[] = [];
-    async function loadPreview(kind: "skin" | "cape", available: boolean) {
+    let urls: string[] = [];
+    async function preview(kind: "skin" | "cape", available: boolean) {
       if (!profile || !available) return "";
-      const bytes = await api.readProfileCosmetic(profile.id, kind);
-      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: "image/png" }));
-      urls.push(url);
-      return url;
+      return loadCosmeticPreview(() => api.readProfileCosmetic(profile.id, kind));
     }
     void Promise.all([
-      loadPreview("skin", Boolean(cosmetics.skinPath)),
-      loadPreview("cape", Boolean(cosmetics.capePath)),
+      preview("skin", Boolean(cosmetics.skinPath)),
+      preview("cape", Boolean(cosmetics.capePath)),
     ]).then(([skin, cape]) => {
-      if (active) { setSkinPreview(skin); setCapePreview(cape); }
-    }).catch(() => setMessage("A cosmetic preview could not be rendered."));
+      urls = [skin, cape].filter(Boolean);
+      if (active) {
+        setSkinPreview(skin);
+        setCapePreview(cape);
+        if ((cosmetics.skinPath && !skin) || (cosmetics.capePath && !cape)) {
+          setMessage("A saved cosmetic file is missing. Import it again or reset the selection.");
+        }
+      } else {
+        urls.forEach((url) => URL.revokeObjectURL(url));
+      }
+    });
     return () => { active = false; urls.forEach((url) => URL.revokeObjectURL(url)); };
   }, [profile, cosmetics.skinPath, cosmetics.capePath]);
 

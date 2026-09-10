@@ -240,4 +240,27 @@ mod tests {
         assert!(load(&paths, &first.id).unwrap().skin_path.is_some());
         assert!(load(&paths, &second.id).unwrap().skin_path.is_none());
     }
+
+    #[test]
+    fn persisted_preview_survives_reload_and_missing_file_is_cleanly_reported() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path().join("flint"));
+        paths.ensure().unwrap();
+        let profile = profile(&paths, "Reload");
+        let source = temp.path().join("skin with spaces 测试.png");
+        make_png(&source, 64, 64);
+        import(&paths, &profile.id, &source, CosmeticKind::Skin).unwrap();
+
+        let reloaded = load(&paths, &profile.id).unwrap();
+        assert!(reloaded.skin_path.is_some());
+        assert!(!read(&paths, &profile.id, CosmeticKind::Skin)
+            .unwrap()
+            .is_empty());
+
+        fs::remove_file(directory(&paths, &profile.id).join("skin.png")).unwrap();
+        assert!(read(&paths, &profile.id, CosmeticKind::Skin).is_err());
+        let reset = remove(&paths, &profile.id, CosmeticKind::Skin).unwrap();
+        assert!(reset.skin_path.is_none());
+        assert!(load(&paths, &profile.id).unwrap().skin_path.is_none());
+    }
 }
