@@ -2,6 +2,7 @@ export const DEFAULT_VERSION = "26.2";
 
 export type Loader = "vanilla" | "fabric";
 export type Preset = "vanilla" | "performance" | "visuals" | "custom";
+export type FlintClientState = "notInstalled" | "installed" | "updateAvailable" | "enabled" | "disabled";
 
 export interface Profile {
   id: string;
@@ -15,6 +16,7 @@ export interface Profile {
   createdAt: string;
   updatedAt: string;
   lastPlayedAt?: string;
+  flintClientState: FlintClientState;
 }
 
 export interface ProfileInput {
@@ -97,4 +99,38 @@ export interface JavaInfo {
   path: string;
   majorVersion: number;
   description: string;
+}
+
+export type SkinModel = "classic" | "slim";
+
+export interface ProfileCosmetics {
+  skinPath?: string;
+  capePath?: string;
+  skinModel: SkinModel;
+  capeEnabled: boolean;
+}
+
+export type ImportCategory = "settings" | "servers" | "resourcePacks" | "shaderPacks" | "configs" | "mods" | "worlds";
+export type ImportCompatibility = "compatible" | "unknown";
+
+export interface ImportItem {
+  category: ImportCategory;
+  name: string;
+  relativePath: string;
+  compatibility: ImportCompatibility;
+  detail: string;
+  selectedByDefault: boolean;
+}
+
+export interface ImportPreview {
+  source: string;
+  profileId: string;
+  minecraftVersion: string;
+  loader: Loader;
+  items: ImportItem[];
+}
+
+export interface ImportResult {
+  filesCopied: number;
+  itemsSkipped: number;
 }

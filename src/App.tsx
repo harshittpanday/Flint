@@ -3,12 +3,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api } from "./api";
 import { ProfileForm } from "./components/ProfileForm";
 import { ModManager } from "./components/ModManager";
+import { CosmeticsManager } from "./components/CosmeticsManager";
+import { ImportSetup } from "./components/ImportSetup";
 import { StatusLog } from "./components/StatusLog";
 import { artworkForVersion } from "./artwork";
 import flintLogo from "./assets/flint-logo-256.png";
 import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
-type View = "home" | "profiles" | "mods" | "settings";
+type View = "home" | "profiles" | "mods" | "cosmetics" | "settings";
 
 const initialStatus: LauncherStatus = { phase: "ready", message: "Loading Flint…" };
 const busyPhases = new Set(["preparing", "downloading", "launching", "running"]);
@@ -37,6 +39,7 @@ export default function App() {
   const [javaRuntimes, setJavaRuntimes] = useState<JavaInfo[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [editing, setEditing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [view, setView] = useState<View>("home");
   const [status, setStatus] = useState<LauncherStatus[]>([initialStatus]);
   const selected = profiles.find((profile) => profile.id === selectedId);
@@ -152,6 +155,7 @@ export default function App() {
   function selectView(next: View) {
     setView(next);
     setEditing(false);
+    setImporting(false);
   }
 
   return (
@@ -162,7 +166,7 @@ export default function App() {
           <div><strong>Flint</strong><span>Launcher</span></div>
         </div>
         <nav className="primary-nav" aria-label="Main navigation">
-          {(["home", "profiles", "mods", "settings"] as View[]).map((item) => (
+          {(["home", "profiles", "mods", "cosmetics", "settings"] as View[]).map((item) => (
             <button key={item} className={view === item ? "active" : ""} onClick={() => selectView(item)} aria-current={view === item ? "page" : undefined}>
               <span className="nav-dot" aria-hidden="true" />{item.charAt(0).toUpperCase() + item.slice(1)}
             </button>
@@ -241,7 +245,9 @@ export default function App() {
                 <div><span className="eyebrow">Your game, separated</span><h1>Profiles</h1><p>Each profile keeps its own worlds, configs, and mods.</p></div>
                 {!editing && <button className="primary-button" onClick={beginCreate} disabled={busy}>New profile</button>}
               </div>
-              {editing ? (
+              {importing && selected ? (
+                <ImportSetup profile={selected} onClose={() => setImporting(false)} />
+              ) : editing ? (
                 <section className="form-surface">
                   <div className="section-heading"><div><span className="eyebrow">Profile setup</span><h2>{selected ? `Edit ${selected.name}` : "Create a profile"}</h2></div></div>
                   <ProfileForm profile={selected} disabled={busy} versions={versions} defaultMemoryMb={settings?.defaultMemoryMb ?? 2048}
@@ -253,17 +259,19 @@ export default function App() {
                     {profiles.map((profile) => (
                       <button className={`profile-card ${profile.id === selectedId ? "selected" : ""}`} key={profile.id} onClick={() => setSelectedId(profile.id)}>
                         <span className="profile-card-icon" aria-hidden="true">{profile.loader === "fabric" ? "F" : "V"}</span>
-                        <span className="profile-card-copy"><strong>{profile.name}</strong><small>Minecraft {profile.minecraftVersion} · {profile.loader === "fabric" ? "Fabric" : "Vanilla"}</small><small>{formatLastPlayed(profile.lastPlayedAt)}</small></span>
+                        <span className="profile-card-copy"><strong>{profile.name}</strong><small>Minecraft {profile.minecraftVersion} · {profile.loader === "fabric" ? "Fabric" : "Vanilla"} · {formatPreset(profile)}</small><small>{formatLastPlayed(profile.lastPlayedAt)}</small></span>
                         <span className="selection-mark" aria-hidden="true">✓</span>
                       </button>
                     ))}
                   </div>
                   {selected && (
                     <section className="profile-detail">
-                      <div><span className="eyebrow">Selected</span><h2>{selected.name}</h2><p>{selected.username} · {selected.memoryMb} MB RAM · {formatPreset(selected)}</p></div>
+                      <div><span className="eyebrow">Selected</span><h2>{selected.name}</h2><p>{selected.username} · {selected.memoryMb} MB RAM · {formatPreset(selected)}</p><small>Flint Client: {selected.flintClientState.replace(/([A-Z])/g, " $1").toLowerCase()}</small></div>
                       <div className="profile-actions">
+                        <button className="primary-button" onClick={() => { setView("home"); void launch(); }} disabled={busy}>Play</button>
                         <button className="secondary-button" onClick={() => setEditing(true)} disabled={busy}>Edit</button>
                         <button className="secondary-button" onClick={duplicateSelected} disabled={busy}>Duplicate</button>
+                        <button className="secondary-button" onClick={() => setImporting(true)} disabled={busy}>Import setup</button>
                         <button className="danger-button" onClick={deleteSelected} disabled={busy}>Delete</button>
                       </div>
                     </section>
@@ -287,10 +295,28 @@ export default function App() {
             </div>
           )}
 
+          {view === "cosmetics" && (
+            <div>
+              <div className="page-heading"><span className="eyebrow">Your local look</span><h1>Cosmetics</h1><p>Preview and store profile-specific skins and capes for the optional Flint Client.</p></div>
+              <label className="context-select">Customize
+                <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
+                  {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                </select>
+              </label>
+              <CosmeticsManager key={selected?.id ?? "none"} profile={selected} disabled={busy} />
+            </div>
+          )}
+
           {view === "settings" && (settings ? (
             <div>
               <div className="page-heading"><span className="eyebrow">Make Flint yours</span><h1>Settings</h1><p>Safe defaults for Minecraft and the launcher.</p></div>
               <div className="settings-stack">
+                <section className="settings-section">
+                  <div className="settings-section-title"><span>Flint Client</span><small>Optional integration foundation</small></div>
+                  <div className="settings-fields">
+                    <div className="client-status"><span><strong>{selected ? `Status: ${selected.flintClientState.replace(/([A-Z])/g, " $1").toLowerCase()}` : "Select a profile"}</strong><small>Client installation and in-game modules are not shipped yet. Vanilla and Fabric launches never depend on this state.</small></span><button className="secondary" onClick={() => setView("cosmetics")} disabled={!selected}>Local cosmetics</button></div>
+                  </div>
+                </section>
                 <section className="settings-section">
                   <div className="settings-section-title"><span>Minecraft</span><small>Game runtime and display</small></div>
                   <div className="settings-fields">

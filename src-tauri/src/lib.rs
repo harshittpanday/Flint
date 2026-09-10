@@ -1,4 +1,6 @@
+mod cosmetics;
 mod error;
+mod importer;
 mod java;
 mod minecraft;
 mod paths;
@@ -42,6 +44,121 @@ fn delete_profile(paths: State<'_, AppPaths>, id: String) -> Result<()> {
 #[tauri::command]
 fn duplicate_profile(paths: State<'_, AppPaths>, id: String) -> Result<Profile> {
     profiles::duplicate(&paths, &id)
+}
+
+#[tauri::command]
+fn set_flint_client_state(
+    paths: State<'_, AppPaths>,
+    id: String,
+    state: profiles::FlintClientState,
+) -> Result<Profile> {
+    profiles::set_client_state(&paths, &id, state)
+}
+
+#[tauri::command]
+fn get_profile_cosmetics(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+) -> Result<cosmetics::ProfileCosmetics> {
+    cosmetics::load(&paths, &profile_id)
+}
+
+#[tauri::command]
+fn save_profile_cosmetics(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    cosmetics: cosmetics::ProfileCosmetics,
+) -> Result<cosmetics::ProfileCosmetics> {
+    cosmetics::save(&paths, &profile_id, cosmetics)
+}
+
+#[tauri::command]
+fn import_profile_cosmetic(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    source: String,
+    kind: String,
+) -> Result<cosmetics::ProfileCosmetics> {
+    let kind = match kind.as_str() {
+        "skin" => cosmetics::CosmeticKind::Skin,
+        "cape" => cosmetics::CosmeticKind::Cape,
+        _ => {
+            return Err(AppError::new(
+                "invalid_cosmetic_kind",
+                "Choose a skin or cape.",
+            ))
+        }
+    };
+    cosmetics::import(&paths, &profile_id, std::path::Path::new(&source), kind)
+}
+
+#[tauri::command]
+fn remove_profile_cosmetic(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    kind: String,
+) -> Result<cosmetics::ProfileCosmetics> {
+    let kind = match kind.as_str() {
+        "skin" => cosmetics::CosmeticKind::Skin,
+        "cape" => cosmetics::CosmeticKind::Cape,
+        _ => {
+            return Err(AppError::new(
+                "invalid_cosmetic_kind",
+                "Choose a skin or cape.",
+            ))
+        }
+    };
+    cosmetics::remove(&paths, &profile_id, kind)
+}
+
+#[tauri::command]
+fn read_profile_cosmetic(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    kind: String,
+) -> Result<Vec<u8>> {
+    let kind = match kind.as_str() {
+        "skin" => cosmetics::CosmeticKind::Skin,
+        "cape" => cosmetics::CosmeticKind::Cape,
+        _ => {
+            return Err(AppError::new(
+                "invalid_cosmetic_kind",
+                "Choose a skin or cape.",
+            ))
+        }
+    };
+    cosmetics::read(&paths, &profile_id, kind)
+}
+
+#[tauri::command]
+async fn preview_existing_setup(
+    paths: State<'_, AppPaths>,
+    source: String,
+    profile_id: String,
+) -> Result<importer::ImportPreview> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        importer::preview(&paths, std::path::Path::new(&source), &profile_id)
+    })
+    .await
+    .map_err(|error| {
+        AppError::new("import_scan_failed", "The setup scan stopped unexpectedly.")
+            .with_detail(error.to_string())
+    })?
+}
+
+#[tauri::command]
+async fn import_existing_setup(
+    paths: State<'_, AppPaths>,
+    request: importer::ImportRequest,
+) -> Result<importer::ImportResult> {
+    let paths = paths.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || importer::apply(&paths, request))
+        .await
+        .map_err(|error| {
+            AppError::new("import_failed", "The setup import stopped unexpectedly.")
+                .with_detail(error.to_string())
+        })?
 }
 
 #[tauri::command]
@@ -281,6 +398,7 @@ pub fn run() {
         .with_writer(writer)
         .init();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(paths)
         .manage(Arc::new(LauncherState {
             busy: AtomicBool::new(false),
@@ -303,6 +421,14 @@ pub fn run() {
             save_profile,
             delete_profile,
             duplicate_profile,
+            set_flint_client_state,
+            get_profile_cosmetics,
+            save_profile_cosmetics,
+            import_profile_cosmetic,
+            remove_profile_cosmetic,
+            read_profile_cosmetic,
+            preview_existing_setup,
+            import_existing_setup,
             list_minecraft_versions,
             list_fabric_loaders,
             search_mods,

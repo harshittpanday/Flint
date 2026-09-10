@@ -1,12 +1,20 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FabricLoaderVersion, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileInput } from "./types";
+import type { FabricLoaderVersion, FlintClientState, ImportCategory, ImportPreview, ImportResult, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileCosmetics, ProfileInput } from "./types";
 
 export const api = {
   listProfiles: () => invoke<Profile[]>("list_profiles"),
   saveProfile: (profile: ProfileInput) => invoke<Profile>("save_profile", { profile }),
   deleteProfile: (id: string) => invoke<void>("delete_profile", { id }),
   duplicateProfile: (id: string) => invoke<Profile>("duplicate_profile", { id }),
+  setFlintClientState: (id: string, state: FlintClientState) => invoke<Profile>("set_flint_client_state", { id, state }),
+  getProfileCosmetics: (profileId: string) => invoke<ProfileCosmetics>("get_profile_cosmetics", { profileId }),
+  saveProfileCosmetics: (profileId: string, cosmetics: ProfileCosmetics) => invoke<ProfileCosmetics>("save_profile_cosmetics", { profileId, cosmetics }),
+  importProfileCosmetic: (profileId: string, source: string, kind: "skin" | "cape") => invoke<ProfileCosmetics>("import_profile_cosmetic", { profileId, source, kind }),
+  removeProfileCosmetic: (profileId: string, kind: "skin" | "cape") => invoke<ProfileCosmetics>("remove_profile_cosmetic", { profileId, kind }),
+  readProfileCosmetic: (profileId: string, kind: "skin" | "cape") => invoke<number[]>("read_profile_cosmetic", { profileId, kind }),
+  previewExistingSetup: (source: string, profileId: string) => invoke<ImportPreview>("preview_existing_setup", { source, profileId }),
+  importExistingSetup: (source: string, profileId: string, categories: ImportCategory[]) => invoke<ImportResult>("import_existing_setup", { request: { source, profileId, categories } }),
   listMinecraftVersions: (includeSnapshots: boolean) => invoke<MinecraftVersion[]>("list_minecraft_versions", { includeSnapshots }),
   listFabricLoaders: (gameVersion: string) => invoke<FabricLoaderVersion[]>("list_fabric_loaders", { gameVersion }),
   searchMods: (profileId: string, query: string) => invoke<ModProject[]>("search_mods", { profileId, query }),

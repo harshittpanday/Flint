@@ -27,6 +27,8 @@ pub struct Profile {
     pub updated_at: DateTime<Utc>,
     #[serde(default)]
     pub last_played_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub flint_client_state: FlintClientState,
 }
 
 #[derive(Debug, Deserialize)]
@@ -62,6 +64,17 @@ pub enum Preset {
     Performance,
     Visuals,
     Custom,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FlintClientState {
+    #[default]
+    NotInstalled,
+    Installed,
+    UpdateAvailable,
+    Enabled,
+    Disabled,
 }
 
 fn default_memory_mb() -> u32 {
@@ -102,6 +115,7 @@ pub fn save(paths: &AppPaths, input: ProfileInput) -> Result<Profile> {
             preset: input.preset,
             memory_mb: input.memory_mb,
             last_played_at: existing.last_played_at,
+            flint_client_state: existing.flint_client_state.clone(),
         }
     } else {
         Profile {
@@ -116,6 +130,7 @@ pub fn save(paths: &AppPaths, input: ProfileInput) -> Result<Profile> {
             preset: input.preset,
             memory_mb: input.memory_mb,
             last_played_at: None,
+            flint_client_state: FlintClientState::NotInstalled,
         }
     };
     profiles.retain(|item| item.id != profile.id);
@@ -169,6 +184,19 @@ pub fn mark_played(paths: &AppPaths, id: &str) -> Result<()> {
         .ok_or_else(|| AppError::new("profile_not_found", "That profile no longer exists."))?;
     profile.last_played_at = Some(Utc::now());
     write(paths, &items)
+}
+
+pub fn set_client_state(paths: &AppPaths, id: &str, state: FlintClientState) -> Result<Profile> {
+    let mut items = list(paths)?;
+    let profile = items
+        .iter_mut()
+        .find(|profile| profile.id == id)
+        .ok_or_else(|| AppError::new("profile_not_found", "That profile no longer exists."))?;
+    profile.flint_client_state = state;
+    profile.updated_at = Utc::now();
+    let saved = profile.clone();
+    write(paths, &items)?;
+    Ok(saved)
 }
 
 pub fn find(paths: &AppPaths, id: &str) -> Result<Profile> {
@@ -310,5 +338,31 @@ mod tests {
             paths.instance_game(&copy.id)
         );
         assert_eq!(copy.memory_mb, 3072);
+        assert_eq!(copy.flint_client_state, FlintClientState::NotInstalled);
+    }
+
+    #[test]
+    fn client_state_persists_without_affecting_launch_profile_fields() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path());
+        paths.ensure().unwrap();
+        let profile = save(
+            &paths,
+            ProfileInput {
+                id: None,
+                name: "Client State".into(),
+                username: "Player_1".into(),
+                minecraft_version: crate::DEFAULT_VERSION.into(),
+                loader: Loader::Fabric,
+                fabric_loader_version: Some("0.16.14".into()),
+                preset: Preset::Vanilla,
+                memory_mb: 2048,
+            },
+        )
+        .unwrap();
+        set_client_state(&paths, &profile.id, FlintClientState::Disabled).unwrap();
+        let reloaded = find(&paths, &profile.id).unwrap();
+        assert_eq!(reloaded.flint_client_state, FlintClientState::Disabled);
+        assert_eq!(reloaded.minecraft_version, crate::DEFAULT_VERSION);
     }
 }

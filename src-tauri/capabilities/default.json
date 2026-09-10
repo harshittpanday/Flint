@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Flint main window permissions",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default"]
 }
