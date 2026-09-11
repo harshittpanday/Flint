@@ -219,19 +219,19 @@ export default function App() {
         <div className="view-content">
           {view === "home" && (
             <div className="home-view">
-              <div className="page-heading">
-                <span className="eyebrow">Ready when you are</span>
-                <h1>Play Minecraft your way.</h1>
-                <p>Choose an isolated profile and Flint will handle the rest.</p>
+              <div className="page-heading home-intro">
+                <span className="eyebrow">Minecraft Java Edition</span>
+                <h1>Welcome back{selected ? `, ${selected.username}` : ""}.</h1>
+                <p>Your game is ready from one place.</p>
               </div>
               {selected ? (
                 <section className="play-hero">
                   <img className="hero-artwork" src={artwork.hero} alt={artwork.alt} style={{ objectPosition: artwork.position }} />
                   <div className="hero-copy">
-                    <span className="eyebrow">Selected profile</span>
-                    <h2>{selected.name}</h2>
+                    <span className="eyebrow">Ready to launch</span>
+                    <h2>Minecraft {selected.minecraftVersion}</h2>
                     <div className="profile-tags">
-                      <span>Minecraft {selected.minecraftVersion}</span>
+                      <span>{selected.name}</span>
                       <span>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}</span>
                       {selected.loader === "fabric" && <span>{formatPreset(selected)} preset</span>}
                     </div>
@@ -261,7 +261,7 @@ export default function App() {
                   <dl>
                     <div><dt>Profile</dt><dd>{selected?.name ?? "Not selected"}</dd></div>
                     <div><dt>Last played</dt><dd>{formatLastPlayed(selected?.lastPlayedAt)}</dd></div>
-                    <div><dt>Java</dt><dd>{javaRuntimes.length ? `Java ${javaRuntimes.map((runtime) => runtime.majorVersion).join(", ")}` : "Not detected"}</dd></div>
+                    <div><dt>Runtime setup</dt><dd>{settings?.automaticJavaManagement ? "Managed automatically" : "Use installed Java"}</dd></div>
                   </dl>
                 </section>
               </div>
