@@ -156,6 +156,8 @@
 - [x] Tauri x64 MSI and NSIS installer builds
 - [x] Direct rebuilt 0.2.0 executable smoke test (responsive Flint window and exit code 0)
 - [x] Rebuild post-beta x64 NSIS installer with canonical Flint icon
+- [x] Build optimized Flint 0.3.0 executable and x64 NSIS installer
+- [x] Process-level Flint 0.3.0 executable startup/responsiveness/cleanup smoke test
 - [ ] Regenerate post-beta MSI (blocked in remote session: Windows Installer service unavailable to WiX ICE validation)
 - [ ] Code signing
 - [ ] Windows install/uninstall smoke test
