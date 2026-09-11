@@ -104,6 +104,7 @@
 - [x] Per-server opaque references and Windows Credential Manager adapter
 - [x] Token-authenticated per-launch loopback bridge and explicit Flint Client triggers
 - [x] Configurable login/register templates, enable/update/remove UI, and replay limits
+- [x] Reset the AutoAuth state on same-server and different-server game joins
 - [ ] Interactive Credential Manager and owned offline-server end-to-end verification
 
 ## Streamer Mode
