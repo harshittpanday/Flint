@@ -95,6 +95,7 @@ pub struct ImportedModResolution {
 #[derive(Clone, Debug)]
 pub struct ImportedHashMatch {
     pub title: String,
+    pub source_version_number: String,
     pub compatible: Option<ImportedModResolution>,
 }
 
@@ -121,6 +122,7 @@ pub async fn resolve_imported_hash(
         });
     Ok(Some(ImportedHashMatch {
         title: project.title,
+        source_version_number: matched.version_number,
         compatible,
     }))
 }

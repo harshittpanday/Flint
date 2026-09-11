@@ -129,7 +129,9 @@ export interface ImportItem {
 export interface ImportPreview {
   source: string;
   profileId: string;
+  sourceMinecraftVersion?: string;
   minecraftVersion: string;
+  sameVersion: boolean;
   loader: Loader;
   items: ImportItem[];
 }

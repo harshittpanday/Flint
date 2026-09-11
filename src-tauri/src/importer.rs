@@ -59,7 +59,9 @@ pub struct ImportItem {
 pub struct ImportPreview {
     pub source: String,
     pub profile_id: String,
+    pub source_minecraft_version: Option<String>,
     pub minecraft_version: String,
+    pub same_version: bool,
     pub loader: profiles::Loader,
     pub items: Vec<ImportItem>,
 }
@@ -83,6 +85,8 @@ pub struct ImportResult {
 pub fn preview(paths: &AppPaths, source: &Path, profile_id: &str) -> Result<ImportPreview> {
     let profile = profiles::find(paths, profile_id)?;
     let source = validate_source(paths, source)?;
+    let source_minecraft_version = detect_source_version(&source);
+    let same_version = source_minecraft_version.as_deref() == Some(&profile.minecraft_version);
     let mut items = Vec::new();
     add_file(
         &source,
@@ -150,10 +154,15 @@ pub fn preview(paths: &AppPaths, source: &Path, profile_id: &str) -> Result<Impo
         }
     }
     validate_local_dependencies(&mut items);
+    if !same_version {
+        enforce_cross_version_mod_policy(&mut items, source_minecraft_version.as_deref());
+    }
     Ok(ImportPreview {
         source: source.to_string_lossy().into_owned(),
         profile_id: profile.id,
+        source_minecraft_version,
         minecraft_version: profile.minecraft_version,
+        same_version,
         loader: profile.loader,
         items,
     })
@@ -180,7 +189,9 @@ pub async fn preview_resolved(
         .items
         .iter()
         .position(|item| item.mod_id.as_deref() == Some("fabric-api"));
-    if let Some(main) = main_fabric_api.filter(|_| !module_indexes.is_empty()) {
+    if let Some(main) =
+        main_fabric_api.filter(|_| preview.same_version && !module_indexes.is_empty())
+    {
         preview.items[main].detail.push_str(&format!(
             " {} separate Fabric API module JARs were ignored to prevent duplicates.",
             module_indexes.len()
@@ -188,7 +199,13 @@ pub async fn preview_resolved(
         for &index in module_indexes.iter().rev() {
             preview.items.remove(index);
         }
-    } else if let Some((&first, rest)) = module_indexes.split_first() {
+    } else if let Some(first) = main_fabric_api.or_else(|| module_indexes.first().copied()) {
+        let redundant = preview
+            .items
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| (index != first && item.fabric_api_module).then_some(index))
+            .collect::<Vec<_>>();
         match modrinth::resolve_imported_project("P7dR8mSH", &preview.minecraft_version).await {
             Ok(Some(resolution)) => {
                 let item = &mut preview.items[first];
@@ -196,11 +213,11 @@ pub async fn preview_resolved(
                 item.compatibility = Compatibility::Resolvable;
                 item.detail = format!(
                     "{} Fabric API module JARs will be replaced by one compatible Modrinth installation ({}).",
-                    module_indexes.len(), resolution.version_number
+                    module_indexes.len().max(1), resolution.version_number
                 );
                 item.selected_by_default = true;
                 item.resolution = Some(resolution);
-                for &index in rest.iter().rev() {
+                for &index in redundant.iter().rev() {
                     preview.items.remove(index);
                 }
             }
@@ -210,7 +227,7 @@ pub async fn preview_resolved(
                     "Fabric API was identified, but Modrinth has no Fabric release for Minecraft {}.",
                     preview.minecraft_version
                 );
-                for &index in rest.iter().rev() {
+                for &index in redundant.iter().rev() {
                     preview.items.remove(index);
                 }
             }
@@ -220,10 +237,11 @@ pub async fn preview_resolved(
 
     for item in preview.items.iter_mut().filter(|item| {
         item.category == ImportCategory::Mods
-            && matches!(
-                item.compatibility,
-                Compatibility::Unknown | Compatibility::Incompatible
-            )
+            && (!preview.same_version
+                || matches!(
+                    item.compatibility,
+                    Compatibility::Unknown | Compatibility::Incompatible
+                ))
             && !item.fabric_api_module
     }) {
         let path = source.join(&item.relative_path);
@@ -236,7 +254,16 @@ pub async fn preview_resolved(
         };
         match modrinth::resolve_imported_hash(&hash, &preview.minecraft_version).await {
             Ok(Some(matched)) => apply_hash_match(item, matched, &preview.minecraft_version),
-            Ok(None) => {}
+            Ok(None) => {
+                if !preview.same_version {
+                    item.compatibility = Compatibility::Unknown;
+                    item.selected_by_default = false;
+                    item.detail = format!(
+                        "Flint could not confidently identify this source mod. It will not be copied into Minecraft {}.",
+                        preview.minecraft_version
+                    );
+                }
+            }
             Err(error) => {
                 tracing::warn!(%error, path = %path.display(), "Modrinth import lookup was unavailable")
             }
@@ -254,8 +281,11 @@ fn apply_hash_match(
         item.compatibility = Compatibility::Resolvable;
         item.name = resolution.title.clone();
         item.detail = format!(
-            "Identified by SHA-1 as {} and can be reinstalled for Minecraft {} ({}).",
-            resolution.title, minecraft_version, resolution.version_number
+            "Identified by SHA-1 as {} {} and will be installed as {} for Minecraft {}.",
+            resolution.title,
+            matched.source_version_number,
+            resolution.version_number,
+            minecraft_version
         );
         item.selected_by_default = true;
         item.resolution = Some(resolution);
@@ -284,8 +314,8 @@ pub async fn apply(paths: &AppPaths, request: ImportRequest) -> Result<ImportRes
             continue;
         }
         if item.category == ImportCategory::Mods {
-            match item.compatibility {
-                Compatibility::Resolvable => {
+            match mod_import_action(preview.same_version, &item) {
+                ModImportAction::Reinstall => {
                     let Some(resolution) = item.resolution else {
                         items_skipped += 1;
                         continue;
@@ -296,8 +326,8 @@ pub async fn apply(paths: &AppPaths, request: ImportRequest) -> Result<ImportRes
                     }
                     continue;
                 }
-                Compatibility::Compatible => {}
-                Compatibility::Unknown | Compatibility::Incompatible => {
+                ModImportAction::Copy => {}
+                ModImportAction::Skip => {
                     items_skipped += 1;
                     continue;
                 }
@@ -317,6 +347,98 @@ pub async fn apply(paths: &AppPaths, request: ImportRequest) -> Result<ImportRes
         mods_reinstalled,
         items_skipped,
     })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ModImportAction {
+    Copy,
+    Reinstall,
+    Skip,
+}
+
+fn mod_import_action(same_version: bool, item: &ImportItem) -> ModImportAction {
+    match item.compatibility {
+        Compatibility::Resolvable if item.resolution.is_some() => ModImportAction::Reinstall,
+        Compatibility::Compatible if same_version => ModImportAction::Copy,
+        _ => ModImportAction::Skip,
+    }
+}
+
+fn enforce_cross_version_mod_policy(items: &mut [ImportItem], source_version: Option<&str>) {
+    for item in items
+        .iter_mut()
+        .filter(|item| item.category == ImportCategory::Mods)
+    {
+        item.compatibility = Compatibility::Unknown;
+        item.selected_by_default = false;
+        item.resolution = None;
+        item.detail = match source_version {
+            Some(version) => format!(
+                "Source Minecraft {version} differs from the target. Flint must identify and reinstall a compatible target build; this JAR will not be copied."
+            ),
+            None => "The source Minecraft version could not be established confidently. Flint must identify and reinstall a compatible target build; this JAR will not be copied.".into(),
+        };
+    }
+}
+
+fn detect_source_version(source: &Path) -> Option<String> {
+    if let Some(version) = launcher_profile_version(source) {
+        return Some(version);
+    }
+    let versions = source.join("versions");
+    let mut candidates = fs::read_dir(versions)
+        .ok()?
+        .filter_map(std::result::Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let id = entry.file_name().to_string_lossy().into_owned();
+            (path.is_dir() && path.join(format!("{id}.json")).is_file())
+                .then(|| normalized_launch_version(&id))
+        })
+        .collect::<std::collections::HashSet<_>>();
+    (candidates.len() == 1)
+        .then(|| candidates.drain().next())
+        .flatten()
+}
+
+fn launcher_profile_version(source: &Path) -> Option<String> {
+    let path = source.join("launcher_profiles.json");
+    let metadata = fs::metadata(&path).ok()?;
+    if metadata.len() > 2 * 1024 * 1024 {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_slice(&fs::read(path).ok()?).ok()?;
+    let profiles = value.get("profiles")?.as_object()?;
+    if let Some(selected) = value
+        .get("selectedProfile")
+        .and_then(serde_json::Value::as_str)
+    {
+        if let Some(version) = profiles
+            .get(selected)
+            .and_then(|profile| profile.get("lastVersionId"))
+            .and_then(serde_json::Value::as_str)
+        {
+            return Some(normalized_launch_version(version));
+        }
+    }
+    let mut versions = profiles
+        .values()
+        .filter_map(|profile| profile.get("lastVersionId"))
+        .filter_map(serde_json::Value::as_str)
+        .map(normalized_launch_version)
+        .collect::<std::collections::HashSet<_>>();
+    (versions.len() == 1)
+        .then(|| versions.drain().next())
+        .flatten()
+}
+
+fn normalized_launch_version(version: &str) -> String {
+    let fabric = regex::Regex::new(r"^fabric-loader-[^-]+-(.+)$").expect("static regex");
+    fabric
+        .captures(version)
+        .and_then(|captures| captures.get(1))
+        .map(|version| version.as_str().to_owned())
+        .unwrap_or_else(|| version.to_owned())
 }
 
 fn validate_source(paths: &AppPaths, source: &Path) -> Result<PathBuf> {
@@ -981,6 +1103,7 @@ mod tests {
             &mut item,
             modrinth::ImportedHashMatch {
                 title: "Sodium".into(),
+                source_version_number: "mc1.21.11-0.8.0".into(),
                 compatible: Some(modrinth::ImportedModResolution {
                     project_id: "AANobbMI".into(),
                     title: "Sodium".into(),
@@ -994,6 +1117,88 @@ mod tests {
         assert!(item.selected_by_default);
     }
 
+    #[test]
+    fn detects_selected_fabric_source_version() {
+        let temp = tempfile::tempdir().unwrap();
+        fs::write(
+            temp.path().join("launcher_profiles.json"),
+            r#"{"selectedProfile":"fabric","profiles":{"fabric":{"lastVersionId":"fabric-loader-0.16.14-1.21.11"},"old":{"lastVersionId":"1.20.1"}}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            detect_source_version(temp.path()).as_deref(),
+            Some("1.21.11")
+        );
+    }
+
+    #[test]
+    fn ambiguous_source_version_is_not_guessed() {
+        let temp = tempfile::tempdir().unwrap();
+        for version in ["1.21.11", "1.20.1"] {
+            let folder = temp.path().join("versions").join(version);
+            fs::create_dir_all(&folder).unwrap();
+            fs::write(folder.join(format!("{version}.json")), "{}").unwrap();
+        }
+        assert_eq!(detect_source_version(temp.path()), None);
+    }
+
+    #[test]
+    fn cross_version_compatible_metadata_cannot_authorize_a_local_copy() {
+        let mut item = ImportItem {
+            category: ImportCategory::Mods,
+            name: "Broad range mod".into(),
+            relative_path: "mods/broad.jar".into(),
+            compatibility: Compatibility::Compatible,
+            detail: String::new(),
+            selected_by_default: true,
+            mod_id: Some("broad".into()),
+            mod_version: Some("1".into()),
+            environment: Some("client".into()),
+            resolution: None,
+            fabric_api_module: false,
+            required_mod_ids: Vec::new(),
+        };
+        enforce_cross_version_mod_policy(std::slice::from_mut(&mut item), Some("1.21.11"));
+        assert_eq!(item.compatibility, Compatibility::Unknown);
+        assert!(!item.selected_by_default);
+        assert_eq!(mod_import_action(false, &item), ModImportAction::Skip);
+        assert_eq!(mod_import_action(true, &item), ModImportAction::Skip);
+    }
+
+    #[test]
+    fn cross_version_mod_requires_a_resolved_target_build() {
+        let mut item = ImportItem {
+            category: ImportCategory::Mods,
+            name: "Sodium".into(),
+            relative_path: "mods/sodium.jar".into(),
+            compatibility: Compatibility::Unknown,
+            detail: String::new(),
+            selected_by_default: false,
+            mod_id: Some("sodium".into()),
+            mod_version: Some("old".into()),
+            environment: Some("client".into()),
+            resolution: None,
+            fabric_api_module: false,
+            required_mod_ids: Vec::new(),
+        };
+        apply_hash_match(
+            &mut item,
+            modrinth::ImportedHashMatch {
+                title: "Sodium".into(),
+                source_version_number: "old".into(),
+                compatible: Some(modrinth::ImportedModResolution {
+                    project_id: "AANobbMI".into(),
+                    title: "Sodium".into(),
+                    version_number: "target".into(),
+                }),
+            },
+            "1.26.1",
+        );
+        assert_eq!(mod_import_action(false, &item), ModImportAction::Reinstall);
+        item.resolution = None;
+        assert_eq!(mod_import_action(false, &item), ModImportAction::Skip);
+    }
+
     #[tokio::test]
     async fn fabric_api_modules_do_not_duplicate_the_main_package() {
         let temp = tempfile::tempdir().unwrap();
@@ -1002,6 +1207,9 @@ mod tests {
         let profile = profile_with_version(&paths, Loader::Fabric, "1.21.11");
         let source = temp.path().join("minecraft");
         fs::create_dir_all(source.join("mods")).unwrap();
+        let version = source.join("versions/1.21.11");
+        fs::create_dir_all(&version).unwrap();
+        fs::write(version.join("1.21.11.json"), "{}").unwrap();
         write_mod(
             &source.join("mods/fabric-api.jar"),
             r#"{"id":"fabric-api","name":"Fabric API","version":"1","depends":{"minecraft":">=1.21.11"}}"#,
