@@ -2,7 +2,7 @@
   "required": true,
   "package": "dev.flint.client.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["AbstractClientPlayerEntityMixin"],
+  "client": ["AbstractClientPlayerEntityMixin", "ClientPlayNetworkHandlerMixin"],
   "injectors": {
     "defaultRequire": 1
   }

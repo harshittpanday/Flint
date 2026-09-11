@@ -187,6 +187,11 @@ input:disabled, select:disabled { color: #6e756b; background: #101210; }
 .settings-save span { color: var(--quiet); font-size: 10px; }
 
 .cosmetics-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.autoauth-manager, .autoauth-form { display: grid; gap: 12px; }
+.autoauth-rule { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.autoauth-rule span, .section-copy { display: grid; gap: 4px; }
+.autoauth-rule small, .section-copy small { color: var(--muted); line-height: 1.5; }
+.autoauth-form { padding: 16px; border-radius: 14px; background: rgba(255, 255, 255, .025); }
 .cosmetic-card { min-width: 0; display: grid; align-content: start; gap: 18px; padding: clamp(22px, 3vw, 32px); border: 1px solid var(--line-soft); background: var(--surface); }
 .cosmetic-card h2 { margin: 5px 0 8px; }
 .cosmetic-card p { color: var(--muted); font-size: 11px; line-height: 1.6; }

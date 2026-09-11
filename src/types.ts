@@ -121,6 +121,24 @@ export interface FlintClientSupport {
   clientVersion: string;
 }
 
+export interface AutoAuthRule {
+  id: string;
+  enabled: boolean;
+  serverAddress: string;
+  loginTemplate: string;
+  registrationTemplate: string;
+  hasCredential: boolean;
+}
+
+export interface AutoAuthInput {
+  id?: string;
+  enabled: boolean;
+  serverAddress: string;
+  loginTemplate: string;
+  registrationTemplate: string;
+  password?: string;
+}
+
 export type ImportCategory = "settings" | "servers" | "resourcePacks" | "shaderPacks" | "configs" | "mods" | "worlds";
 export type ImportCompatibility = "compatible" | "resolvable" | "incompatible" | "unknown";
 

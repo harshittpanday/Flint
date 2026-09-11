@@ -1,3 +1,4 @@
+mod autoauth;
 mod cosmetics;
 mod error;
 mod flint_client;
@@ -63,6 +64,32 @@ fn set_flint_client_enabled(
     enabled: bool,
 ) -> Result<Profile> {
     flint_client::set_enabled(&paths, &profile_id, enabled)
+}
+
+#[tauri::command]
+fn list_autoauth_rules(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+) -> Result<Vec<autoauth::AutoAuthRule>> {
+    autoauth::list(&paths, &profile_id)
+}
+
+#[tauri::command]
+fn save_autoauth_rule(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    rule: autoauth::AutoAuthInput,
+) -> Result<Vec<autoauth::AutoAuthRule>> {
+    autoauth::save(&paths, &profile_id, rule)
+}
+
+#[tauri::command]
+fn remove_autoauth_rule(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    id: String,
+) -> Result<Vec<autoauth::AutoAuthRule>> {
+    autoauth::remove(&paths, &profile_id, &id)
 }
 
 #[tauri::command]
@@ -346,6 +373,11 @@ async fn launch_minecraft(
             .await?;
         }
         flint_client::prepare(&paths, &profile)?;
+        let autoauth_session = if profile.flint_client_state == profiles::FlintClientState::Enabled {
+            autoauth::start_session(&paths, &profile.id)?
+        } else {
+            None
+        };
         let game_dir = paths.instance_game(&profile.id);
         let launch_arguments = arguments::build(
             &prepared,
@@ -377,6 +409,7 @@ async fn launch_minecraft(
             &java,
             prepared,
             launch_arguments,
+            autoauth_session,
         )?;
         profiles::mark_played(&paths, &profile.id)
     }
@@ -425,6 +458,9 @@ pub fn run() {
             duplicate_profile,
             get_flint_client_support,
             set_flint_client_enabled,
+            list_autoauth_rules,
+            save_autoauth_rule,
+            remove_autoauth_rule,
             get_profile_cosmetics,
             save_profile_cosmetics,
             import_profile_cosmetic,

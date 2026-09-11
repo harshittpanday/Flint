@@ -24,6 +24,7 @@ pub fn launch(
     java: &JavaInfo,
     prepared: PreparedVersion,
     arguments: LaunchArguments,
+    autoauth_session: Option<crate::autoauth::AutoAuthSession>,
 ) -> Result<()> {
     let game_dir = paths.instance_game(&profile.id);
     std::fs::create_dir_all(&game_dir)?;
@@ -40,6 +41,9 @@ pub fn launch(
         .current_dir(&game_dir)
         .stdout(Stdio::from(game_log))
         .stderr(Stdio::from(error_log));
+    if let Some(session) = &autoauth_session {
+        session.configure(&mut command);
+    }
     tracing::info!(java = %java.path.display(), main_class = %prepared.metadata.main_class, game_dir = %game_dir.display(), "starting Minecraft process");
     let mut child = command.spawn().map_err(|error| {
         AppError::new(
@@ -66,6 +70,7 @@ pub fn launch(
         .map(|settings| settings.discord_rich_presence)
         .unwrap_or(false);
     tokio::spawn(async move {
+        let _autoauth_session = autoauth_session;
         match child.wait().await {
             Ok(status) if status.success() => {
                 emit(&app, "finished", "Minecraft exited normally.", None)

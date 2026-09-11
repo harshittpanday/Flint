@@ -5,6 +5,7 @@ import { ProfileForm } from "./components/ProfileForm";
 import { ModManager } from "./components/ModManager";
 import { CosmeticsManager } from "./components/CosmeticsManager";
 import { ImportSetup } from "./components/ImportSetup";
+import { AutoAuthManager } from "./components/AutoAuthManager";
 import { StatusLog } from "./components/StatusLog";
 import { artworkForVersion } from "./artwork";
 import flintLogo from "./assets/flint-logo-256.png";
@@ -343,6 +344,7 @@ export default function App() {
                   <div className="settings-section-title"><span>Flint Client</span><small>Optional integration foundation</small></div>
                   <div className="settings-fields">
                     <div className="client-status"><span><strong>{selected ? `Flint Client ${clientSupport?.enabled ? "enabled" : "disabled"}` : "Select a profile"}</strong><small>{clientSupport?.reason ?? "Choose a profile to check compatibility."} The client is optional; ordinary Vanilla and Fabric launches remain independent.</small></span><div className="inline-actions"><button onClick={() => void setClientEnabled(!clientSupport?.enabled)} disabled={!selected || !clientSupport?.supported || busy}>{clientSupport?.enabled ? "Disable" : "Enable"}</button><button className="secondary" onClick={() => setView("cosmetics")} disabled={!selected}>Local cosmetics</button></div></div>
+                    <AutoAuthManager key={selected?.id ?? "none"} profile={selected} available={Boolean(clientSupport?.supported && clientSupport.enabled)} disabled={busy} onMessage={(message, failed) => setStatus((items) => [...items, { phase: failed ? "failed" : "ready", message }])} />
                   </div>
                 </section>
                 <section className="settings-section">

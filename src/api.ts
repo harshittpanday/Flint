@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FabricLoaderVersion, FlintClientSupport, ImportCategory, ImportPreview, ImportResult, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileCosmetics, ProfileInput } from "./types";
+import type { AutoAuthInput, AutoAuthRule, FabricLoaderVersion, FlintClientSupport, ImportCategory, ImportPreview, ImportResult, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileCosmetics, ProfileInput } from "./types";
 
 export const api = {
   listProfiles: () => invoke<Profile[]>("list_profiles"),
@@ -9,6 +9,9 @@ export const api = {
   duplicateProfile: (id: string) => invoke<Profile>("duplicate_profile", { id }),
   getFlintClientSupport: (profileId: string) => invoke<FlintClientSupport>("get_flint_client_support", { profileId }),
   setFlintClientEnabled: (profileId: string, enabled: boolean) => invoke<Profile>("set_flint_client_enabled", { profileId, enabled }),
+  listAutoAuthRules: (profileId: string) => invoke<AutoAuthRule[]>("list_autoauth_rules", { profileId }),
+  saveAutoAuthRule: (profileId: string, rule: AutoAuthInput) => invoke<AutoAuthRule[]>("save_autoauth_rule", { profileId, rule }),
+  removeAutoAuthRule: (profileId: string, id: string) => invoke<AutoAuthRule[]>("remove_autoauth_rule", { profileId, id }),
   getProfileCosmetics: (profileId: string) => invoke<ProfileCosmetics>("get_profile_cosmetics", { profileId }),
   saveProfileCosmetics: (profileId: string, cosmetics: ProfileCosmetics) => invoke<ProfileCosmetics>("save_profile_cosmetics", { profileId, cosmetics }),
   importProfileCosmetic: (profileId: string, source: string, kind: "skin" | "cape") => invoke<ProfileCosmetics>("import_profile_cosmetic", { profileId, source, kind }),
