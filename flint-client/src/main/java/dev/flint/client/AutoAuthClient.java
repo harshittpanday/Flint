@@ -18,10 +18,13 @@ public final class AutoAuthClient {
     private static final Gson GSON = new Gson();
     private static final String ENDPOINT = System.getenv("FLINT_AUTOAUTH_ENDPOINT");
     private static final String TOKEN = System.getenv("FLINT_AUTOAUTH_TOKEN");
-    private static State state = State.DISCONNECTED;
-    private static String connectedServer;
+    private static final AutoAuthStateMachine STATE = new AutoAuthStateMachine();
 
     private AutoAuthClient() {
+    }
+
+    public static void beginConnection() {
+        STATE.beginConnection();
     }
 
     public static boolean intercept(String command, ClientPlayNetworkHandler handler) {
@@ -35,17 +38,12 @@ public final class AutoAuthClient {
             return true;
         }
         String server = serverInfo.address;
-        if (!server.equalsIgnoreCase(connectedServer)) {
-            connectedServer = server;
-            state = State.CONNECTED;
-        }
-        if (state == State.AUTHENTICATION_ATTEMPTED || state == State.SESSION_COMPLETE) {
+        if (!STATE.awaitAuthentication(server)) {
             notifyPlayer(client, "AutoAuth already attempted for this connection.");
             return true;
         }
-        state = State.AWAITING_AUTHENTICATION;
         String action = command.endsWith("register") ? "register" : "login";
-        state = State.AUTHENTICATION_ATTEMPTED;
+        STATE.markAttempted();
         Thread worker = new Thread(() -> requestCommand(client, handler, server, action), "Flint-AutoAuth");
         worker.setDaemon(true);
         worker.start();
@@ -82,10 +80,10 @@ public final class AutoAuthClient {
         client.execute(() -> {
             if (result != null && result.command != null && !result.command.isBlank()) {
                 handler.sendChatCommand(result.command);
-                state = State.SESSION_COMPLETE;
+                STATE.complete();
                 notifyPlayer(client, "AutoAuth command sent once.");
             } else {
-                state = State.SESSION_COMPLETE;
+                STATE.complete();
                 notifyPlayer(client, "AutoAuth could not provide a command for this server.");
             }
         });
@@ -104,11 +102,4 @@ public final class AutoAuthClient {
         String command;
     }
 
-    private enum State {
-        DISCONNECTED,
-        CONNECTED,
-        AWAITING_AUTHENTICATION,
-        AUTHENTICATION_ATTEMPTED,
-        SESSION_COMPLETE
-    }
 }

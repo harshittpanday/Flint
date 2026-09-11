@@ -34,3 +34,15 @@ java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
+
+tasks.register('testAutoAuthStateMachine', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.flint.client.AutoAuthStateMachineTest'
+}
+
+tasks.named('test') {
+    failOnNoDiscoveredTests = false
+}
+
+check.dependsOn testAutoAuthStateMachine

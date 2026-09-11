@@ -449,6 +449,16 @@ mod tests {
         assert!(claim_attempt(&mut attempts, "rule", "register"));
     }
 
+    #[test]
+    fn disabled_or_unconfigured_autoauth_starts_no_bridge() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path());
+        paths.ensure().unwrap();
+        assert!(start_session(&paths, "unconfigured-profile")
+            .unwrap()
+            .is_none());
+    }
+
     #[cfg(target_os = "windows")]
     #[test]
     #[ignore = "requires an interactive Windows logon session for Credential Manager"]
