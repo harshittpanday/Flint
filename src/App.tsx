@@ -127,6 +127,7 @@ export default function App() {
     try {
       const saved = await api.saveSettings(next);
       setVersions(await api.listMinecraftVersions(saved.showSnapshots));
+      setJavaRuntimes(await api.listJavaRuntimes());
       setSettings(saved);
       setStatus((items) => [...items, { phase: "ready", message: "Launcher settings saved." }]);
     } catch (error) {
@@ -338,9 +339,10 @@ export default function App() {
                 <section className="settings-section">
                   <div className="settings-section-title"><span>Advanced</span><small>Java and diagnostics</small></div>
                   <div className="settings-fields">
-                    <label className="toggle-row"><span><strong>Automatic Java selection</strong><small>Use Mojang metadata to choose an installed 64-bit runtime.</small></span><input type="checkbox" checked={settings.automaticJava} onChange={(event) => setSettings({ ...settings, automaticJava: event.target.checked })} /></label>
+                    <label className="toggle-row"><span><strong>Automatic Java selection</strong><small>Use Mojang metadata to choose the right 64-bit runtime.</small></span><input type="checkbox" checked={settings.automaticJava} onChange={(event) => setSettings({ ...settings, automaticJava: event.target.checked })} /></label>
+                    <label className="toggle-row"><span><strong>Manage missing runtimes</strong><small>Download verified Temurin runtimes into Flint's private app data when needed.</small></span><input type="checkbox" checked={settings.automaticJavaManagement} disabled={!settings.automaticJava} onChange={(event) => setSettings({ ...settings, automaticJavaManagement: event.target.checked })} /></label>
                     <label>Manual Java executable<input value={settings.manualJavaPath ?? ""} placeholder="C:\\Program Files\\Java\\bin\\java.exe" disabled={settings.automaticJava} onChange={(event) => setSettings({ ...settings, manualJavaPath: event.target.value || undefined })} /></label>
-                    <div className="runtime-list"><span className="eyebrow">Detected runtimes</span>{javaRuntimes.length ? javaRuntimes.map((runtime) => <div key={runtime.path}><strong>Java {runtime.majorVersion}</strong><small title={runtime.path}>{runtime.description}</small></div>) : <p>No compatible 64-bit Java runtimes detected.</p>}</div>
+                    <div className="runtime-list"><span className="eyebrow">Java runtimes</span>{javaRuntimes.length ? javaRuntimes.map((runtime) => <div key={runtime.path}><strong>Java {runtime.majorVersion} · {runtime.architecture}</strong><small title={runtime.path}>{runtime.source === "managed" ? "Flint managed" : runtime.source === "manual" ? "Manual override" : "System"} · {runtime.description}</small></div>) : <p>No compatible 64-bit Java runtimes detected. Flint will prepare one when Play requires it.</p>}</div>
                   </div>
                 </section>
               </div>

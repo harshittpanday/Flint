@@ -1,4 +1,7 @@
-use crate::error::{AppError, Result};
+use crate::{
+    error::{AppError, Result},
+    paths::AppPaths,
+};
 use regex::Regex;
 use serde::Serialize;
 use std::{
@@ -12,12 +15,25 @@ pub struct JavaInfo {
     pub path: PathBuf,
     pub major_version: u32,
     pub description: String,
+    pub architecture: String,
+    pub source: JavaSource,
 }
 
-pub fn list() -> Vec<JavaInfo> {
-    let mut candidates = Vec::new();
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JavaSource {
+    Managed,
+    System,
+    Manual,
+}
+
+pub fn list(paths: &AppPaths) -> Vec<JavaInfo> {
+    let mut candidates = managed_candidates(paths)
+        .into_iter()
+        .map(|path| (path, JavaSource::Managed))
+        .collect::<Vec<_>>();
     if let Some(home) = std::env::var_os("JAVA_HOME") {
-        candidates.push(PathBuf::from(home).join("bin/java.exe"));
+        candidates.push((PathBuf::from(home).join("bin/java.exe"), JavaSource::System));
     }
     if let Ok(output) = crate::process_command::std_command("where.exe")
         .arg("java.exe")
@@ -26,7 +42,7 @@ pub fn list() -> Vec<JavaInfo> {
         candidates.extend(
             String::from_utf8_lossy(&output.stdout)
                 .lines()
-                .map(PathBuf::from),
+                .map(|path| (PathBuf::from(path), JavaSource::System)),
         );
     }
     for root in [
@@ -35,22 +51,28 @@ pub fn list() -> Vec<JavaInfo> {
         r"C:\Program Files\Microsoft",
         r"C:\Program Files\Amazon Corretto",
     ] {
-        candidates.extend(java_children(Path::new(root)));
+        candidates.extend(
+            java_children(Path::new(root))
+                .into_iter()
+                .map(|path| (path, JavaSource::System)),
+        );
     }
     if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-        candidates.extend(java_children(
-            &PathBuf::from(local_app_data).join(r"Programs\Eclipse Adoptium"),
-        ));
+        candidates.extend(
+            java_children(&PathBuf::from(local_app_data).join(r"Programs\Eclipse Adoptium"))
+                .into_iter()
+                .map(|path| (path, JavaSource::System)),
+        );
     }
     let mut seen_paths = HashSet::new();
     let mut seen_installations = HashSet::new();
     let mut detected = Vec::new();
-    for candidate in candidates {
+    for (candidate, source) in candidates {
         let path_key = normalized_path(&candidate);
         if !candidate.is_file() || !seen_paths.insert(path_key) {
             continue;
         }
-        if let Some((info, installation_key)) = inspect_with_identity(&candidate) {
+        if let Some((info, installation_key)) = inspect_with_identity(&candidate, source) {
             if seen_installations.insert(installation_key) {
                 detected.push(info);
             }
@@ -60,14 +82,18 @@ pub fn list() -> Vec<JavaInfo> {
     detected
 }
 
-pub fn detect(required_major: u32, manual_path: Option<&Path>) -> Result<JavaInfo> {
-    let selected = if let Some(path) = manual_path {
-        inspect(path).filter(|info| info.major_version == required_major)
-    } else {
-        list()
-            .into_iter()
-            .find(|info| info.major_version == required_major)
-    }
+pub fn detect(
+    paths: &AppPaths,
+    required_major: u32,
+    manual_path: Option<&Path>,
+) -> Result<JavaInfo> {
+    let manual = manual_path.and_then(|path| inspect_as(path, JavaSource::Manual));
+    let selected = select_detected(
+        required_major,
+        manual_path.is_some(),
+        manual,
+        list(paths),
+    )
     .ok_or_else(|| {
         AppError::new(
             "java_not_found",
@@ -94,10 +120,14 @@ fn java_children(root: &Path) -> Vec<PathBuf> {
 }
 
 pub fn inspect(path: &Path) -> Option<JavaInfo> {
-    inspect_with_identity(path).map(|(info, _)| info)
+    inspect_as(path, JavaSource::Managed)
 }
 
-fn inspect_with_identity(path: &Path) -> Option<(JavaInfo, String)> {
+fn inspect_as(path: &Path, source: JavaSource) -> Option<JavaInfo> {
+    inspect_with_identity(path, source).map(|(info, _)| info)
+}
+
+fn inspect_with_identity(path: &Path, source: JavaSource) -> Option<(JavaInfo, String)> {
     let output = crate::process_command::std_command(path)
         .args(["-XshowSettings:properties", "-version"])
         .output()
@@ -118,12 +148,12 @@ fn inspect_with_identity(path: &Path) -> Option<(JavaInfo, String)> {
     } else {
         first
     };
-    let is_64_bit = text.lines().any(|line| {
-        let line = line.trim().to_ascii_lowercase();
-        line.starts_with("os.arch =")
-            && (line.contains("amd64") || line.contains("x86_64") || line.contains("aarch64"))
-    });
-    if !is_64_bit {
+    let architecture = text
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("os.arch ="))
+        .map(str::trim)
+        .and_then(normalized_architecture)?;
+    if architecture != current_architecture() {
         return None;
     }
     let description = text
@@ -142,9 +172,57 @@ fn inspect_with_identity(path: &Path) -> Option<(JavaInfo, String)> {
             path: path.to_path_buf(),
             major_version: major,
             description,
+            architecture: architecture.into(),
+            source,
         },
         installation_key,
     ))
+}
+
+fn select_detected(
+    required_major: u32,
+    manual_requested: bool,
+    manual: Option<JavaInfo>,
+    automatic: Vec<JavaInfo>,
+) -> Option<JavaInfo> {
+    if manual_requested {
+        return manual.filter(|runtime| runtime.major_version == required_major);
+    }
+    automatic
+        .into_iter()
+        .find(|runtime| runtime.major_version == required_major)
+}
+
+fn normalized_architecture(value: &str) -> Option<&'static str> {
+    match value.to_ascii_lowercase().as_str() {
+        "amd64" | "x86_64" => Some("x64"),
+        "aarch64" | "arm64" => Some("arm64"),
+        _ => None,
+    }
+}
+
+fn current_architecture() -> &'static str {
+    if cfg!(target_arch = "x86_64") {
+        "x64"
+    } else if cfg!(target_arch = "aarch64") {
+        "arm64"
+    } else {
+        "unsupported"
+    }
+}
+
+fn managed_candidates(paths: &AppPaths) -> Vec<PathBuf> {
+    java_children(&paths.runtimes)
+        .into_iter()
+        .chain(
+            std::fs::read_dir(&paths.runtimes)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .flat_map(|entry| java_children(&entry.path())),
+        )
+        .filter(|path| path.is_file())
+        .collect()
 }
 
 fn normalized_path(path: &Path) -> String {
@@ -157,8 +235,12 @@ fn normalized_path(path: &Path) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{detect, normalized_path};
-    use std::path::Path;
+    use super::{
+        detect, managed_candidates, normalized_architecture, normalized_path, select_detected,
+        JavaInfo, JavaSource,
+    };
+    use crate::paths::AppPaths;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn java_version_regex_handles_modern_versions() {
@@ -177,10 +259,13 @@ mod tests {
         let expected: u32 = expected
             .parse()
             .expect("FLINT_TEST_JAVA_MAJOR must be numeric");
-        let detected =
-            detect(expected, None).expect("requested installed Java runtime was not detected");
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path());
+        let detected = detect(&paths, expected, None)
+            .expect("requested installed Java runtime was not detected");
         assert_eq!(detected.major_version, expected);
         assert!(detected.path.is_file());
+        assert_eq!(detected.source, JavaSource::System);
     }
 
     #[test]
@@ -189,5 +274,75 @@ mod tests {
             normalized_path(Path::new(r"C:\Java\Temurin\")),
             normalized_path(Path::new(r"c:\java\temurin"))
         );
+    }
+
+    #[test]
+    fn architecture_is_detected_without_mislabeling_arm64() {
+        assert_eq!(normalized_architecture("amd64"), Some("x64"));
+        assert_eq!(normalized_architecture("x86_64"), Some("x64"));
+        assert_eq!(normalized_architecture("aarch64"), Some("arm64"));
+        assert_eq!(normalized_architecture("x86"), None);
+    }
+
+    fn info(major: u32, source: JavaSource) -> JavaInfo {
+        JavaInfo {
+            path: PathBuf::from(format!(r"C:\Java\{major}\bin\java.exe")),
+            major_version: major,
+            description: "Test Java".into(),
+            architecture: "x64".into(),
+            source,
+        }
+    }
+
+    #[test]
+    fn manual_override_has_strict_precedence() {
+        let selected = select_detected(
+            21,
+            true,
+            Some(info(17, JavaSource::Manual)),
+            vec![info(21, JavaSource::System)],
+        );
+        assert!(selected.is_none());
+        let selected = select_detected(
+            21,
+            true,
+            Some(info(21, JavaSource::Manual)),
+            vec![info(21, JavaSource::Managed)],
+        )
+        .unwrap();
+        assert_eq!(selected.source, JavaSource::Manual);
+    }
+
+    #[test]
+    fn automatic_selection_reuses_a_compatible_major() {
+        let selected = select_detected(
+            21,
+            false,
+            None,
+            vec![
+                info(25, JavaSource::System),
+                info(21, JavaSource::Managed),
+                info(17, JavaSource::System),
+            ],
+        )
+        .unwrap();
+        assert_eq!(selected.major_version, 21);
+        assert_eq!(selected.source, JavaSource::Managed);
+    }
+
+    #[test]
+    fn managed_runtime_candidates_are_isolated_by_major() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path());
+        for major in [17, 21, 25] {
+            let bin = paths.runtimes.join(format!("java-{major}/bin"));
+            std::fs::create_dir_all(&bin).unwrap();
+            std::fs::write(bin.join("java.exe"), b"fixture").unwrap();
+        }
+        let candidates = managed_candidates(&paths);
+        assert_eq!(candidates.len(), 3);
+        assert!(candidates
+            .iter()
+            .all(|path| path.starts_with(&paths.runtimes)));
     }
 }

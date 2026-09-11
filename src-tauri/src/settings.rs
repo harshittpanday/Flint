@@ -9,6 +9,7 @@ use std::{fs, path::PathBuf};
 #[serde(rename_all = "camelCase", default)]
 pub struct LauncherSettings {
     pub automatic_java: bool,
+    pub automatic_java_management: bool,
     pub manual_java_path: Option<PathBuf>,
     pub default_memory_mb: u32,
     pub resolution_width: u32,
@@ -31,6 +32,7 @@ impl Default for LauncherSettings {
     fn default() -> Self {
         Self {
             automatic_java: true,
+            automatic_java_management: true,
             manual_java_path: None,
             default_memory_mb: 2048,
             resolution_width: 1280,

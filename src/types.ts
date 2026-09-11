@@ -70,6 +70,7 @@ export type RunningBehavior = "keepOpen" | "minimize" | "hide";
 
 export interface LauncherSettings {
   automaticJava: boolean;
+  automaticJavaManagement: boolean;
   manualJavaPath?: string;
   defaultMemoryMb: number;
   resolutionWidth: number;
@@ -99,6 +100,8 @@ export interface JavaInfo {
   path: string;
   majorVersion: number;
   description: string;
+  architecture: string;
+  source: "managed" | "system" | "manual";
 }
 
 export type SkinModel = "classic" | "slim";

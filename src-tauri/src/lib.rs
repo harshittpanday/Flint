@@ -7,6 +7,7 @@ mod paths;
 mod presence;
 mod process_command;
 mod profiles;
+mod runtime_manager;
 mod settings;
 
 use error::{AppError, Result};
@@ -246,8 +247,8 @@ fn save_settings(
 }
 
 #[tauri::command]
-fn list_java_runtimes() -> Vec<java::JavaInfo> {
-    java::list()
+fn list_java_runtimes(paths: State<'_, AppPaths>) -> Vec<java::JavaInfo> {
+    java::list(&paths)
 }
 
 #[tauri::command]
@@ -293,10 +294,13 @@ async fn launch_minecraft(
                     ),
                 )
             })?;
-        let manual_java = (!launcher_settings.automatic_java)
-            .then_some(launcher_settings.manual_java_path.as_deref())
-            .flatten();
-        let java = java::detect(required_java, manual_java)?;
+        let java = runtime_manager::select_or_prepare(
+            &app,
+            &paths,
+            &launcher_settings,
+            required_java,
+        )
+        .await?;
         install::emit(
             &app,
             "preparing",

@@ -12,6 +12,7 @@ pub struct AppPaths {
     pub profiles: PathBuf,
     pub settings: PathBuf,
     pub logs: PathBuf,
+    pub runtimes: PathBuf,
 }
 
 impl AppPaths {
@@ -37,6 +38,7 @@ impl AppPaths {
             profiles: root.join("profiles"),
             settings: root.join("settings"),
             logs: root.join("logs"),
+            runtimes: root.join("runtimes"),
         }
     }
 
@@ -50,6 +52,7 @@ impl AppPaths {
             &self.profiles,
             &self.settings,
             &self.logs,
+            &self.runtimes,
         ] {
             std::fs::create_dir_all(path)?;
         }
