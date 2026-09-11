@@ -272,8 +272,7 @@ fn handle_request(
             let rule = rules
                 .iter()
                 .find(|rule| rule.server_address.eq_ignore_ascii_case(&server))?;
-            let attempt_key = format!("{}:{}", rule.id, request.action);
-            if !attempted.insert(attempt_key) {
+            if !claim_attempt(attempted, &rule.id, &request.action) {
                 return Some(BridgeResponse {
                     command: None,
                     error: Some("already_attempted"),
@@ -300,6 +299,10 @@ fn handle_request(
         let _ = stream.write_all(&bytes);
         let _ = stream.write_all(b"\n");
     }
+}
+
+fn claim_attempt(attempted: &mut HashSet<String>, rule_id: &str, action: &str) -> bool {
+    attempted.insert(format!("{rule_id}:{action}"))
 }
 
 fn credential(reference: &str) -> Result<keyring::Entry> {
@@ -436,6 +439,14 @@ mod tests {
         assert!(!json.contains("dummy-secret"));
         assert!(!json.contains("password\""));
         assert!(json.contains("opaque-reference"));
+    }
+
+    #[test]
+    fn one_command_is_allowed_per_rule_and_action() {
+        let mut attempts = HashSet::new();
+        assert!(claim_attempt(&mut attempts, "rule", "login"));
+        assert!(!claim_attempt(&mut attempts, "rule", "login"));
+        assert!(claim_attempt(&mut attempts, "rule", "register"));
     }
 
     #[cfg(target_os = "windows")]
