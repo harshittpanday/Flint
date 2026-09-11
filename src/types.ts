@@ -109,8 +109,16 @@ export type SkinModel = "classic" | "slim";
 export interface ProfileCosmetics {
   skinPath?: string;
   capePath?: string;
+  skinEnabled: boolean;
   skinModel: SkinModel;
   capeEnabled: boolean;
+}
+
+export interface FlintClientSupport {
+  supported: boolean;
+  reason: string;
+  enabled: boolean;
+  clientVersion: string;
 }
 
 export type ImportCategory = "settings" | "servers" | "resourcePacks" | "shaderPacks" | "configs" | "mods" | "worlds";

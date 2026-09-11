@@ -1,13 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { FabricLoaderVersion, FlintClientState, ImportCategory, ImportPreview, ImportResult, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileCosmetics, ProfileInput } from "./types";
+import type { FabricLoaderVersion, FlintClientSupport, ImportCategory, ImportPreview, ImportResult, InstalledMod, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, ModProject, Preset, PresetMod, Profile, ProfileCosmetics, ProfileInput } from "./types";
 
 export const api = {
   listProfiles: () => invoke<Profile[]>("list_profiles"),
   saveProfile: (profile: ProfileInput) => invoke<Profile>("save_profile", { profile }),
   deleteProfile: (id: string) => invoke<void>("delete_profile", { id }),
   duplicateProfile: (id: string) => invoke<Profile>("duplicate_profile", { id }),
-  setFlintClientState: (id: string, state: FlintClientState) => invoke<Profile>("set_flint_client_state", { id, state }),
+  getFlintClientSupport: (profileId: string) => invoke<FlintClientSupport>("get_flint_client_support", { profileId }),
+  setFlintClientEnabled: (profileId: string, enabled: boolean) => invoke<Profile>("set_flint_client_enabled", { profileId, enabled }),
   getProfileCosmetics: (profileId: string) => invoke<ProfileCosmetics>("get_profile_cosmetics", { profileId }),
   saveProfileCosmetics: (profileId: string, cosmetics: ProfileCosmetics) => invoke<ProfileCosmetics>("save_profile_cosmetics", { profileId, cosmetics }),
   importProfileCosmetic: (profileId: string, source: string, kind: "skin" | "cape") => invoke<ProfileCosmetics>("import_profile_cosmetic", { profileId, source, kind }),

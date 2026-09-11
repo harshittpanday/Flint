@@ -9,7 +9,7 @@ interface Props {
   disabled: boolean;
 }
 
-const emptyCosmetics: ProfileCosmetics = { skinModel: "classic", capeEnabled: false };
+const emptyCosmetics: ProfileCosmetics = { skinEnabled: false, skinModel: "classic", capeEnabled: false };
 
 export function CosmeticsManager({ profile, disabled }: Props) {
   const [cosmetics, setCosmetics] = useState<ProfileCosmetics>(emptyCosmetics);
@@ -76,14 +76,15 @@ export function CosmeticsManager({ profile, disabled }: Props) {
   return <div className="cosmetics-layout">
     <section className="cosmetic-card">
       <div className="cosmetic-preview">{skinPreview ? <img src={skinPreview} alt="Selected local skin preview" /> : <span>No skin</span>}</div>
-      <div><span className="eyebrow">Local skin</span><h2>{profile.name}</h2><p>Used only by a future optional Flint Client integration. This does not change an official Minecraft account skin.</p></div>
+      <div><span className="eyebrow">Local skin</span><h2>{profile.name}</h2><p>Visible only to you with Flint Client enabled. This never changes an official Minecraft account skin.</p></div>
+      <label className="toggle-row"><span><strong>Enable local skin</strong><small>Applies only to the current player in your local game.</small></span><input type="checkbox" checked={cosmetics.skinEnabled} disabled={disabled || !cosmetics.skinPath} onChange={(event) => void save({ ...cosmetics, skinEnabled: event.target.checked })} /></label>
       <label>Player model<select value={cosmetics.skinModel} disabled={disabled} onChange={(event) => void save({ ...cosmetics, skinModel: event.target.value as ProfileCosmetics["skinModel"] })}><option value="classic">Classic / Steve</option><option value="slim">Slim / Alex</option></select></label>
       <div className="inline-actions"><button onClick={() => void choose("skin")} disabled={disabled}>Import PNG</button><button className="secondary" onClick={() => void remove("skin")} disabled={disabled || !cosmetics.skinPath}>Reset</button></div>
     </section>
     <section className="cosmetic-card">
       <div className="cosmetic-preview cape">{capePreview ? <img src={capePreview} alt="Selected local cape preview" /> : <span>No cape</span>}</div>
-      <div><span className="eyebrow">Local cape</span><h2>Flint Client cosmetic</h2><p>Stored locally and never presented as an official or server-visible entitlement.</p></div>
-      <label className="toggle-row"><span><strong>Enable local cape</strong><small>Has effect only when a supporting Flint Client exists.</small></span><input type="checkbox" checked={cosmetics.capeEnabled} disabled={disabled || !cosmetics.capePath} onChange={(event) => void save({ ...cosmetics, capeEnabled: event.target.checked })} /></label>
+      <div><span className="eyebrow">Local cape</span><h2>Flint Client cosmetic</h2><p>Visible only to you and never presented as an official or server-visible entitlement.</p></div>
+      <label className="toggle-row"><span><strong>Enable local cape</strong><small>Applies only to the current player in your local game.</small></span><input type="checkbox" checked={cosmetics.capeEnabled} disabled={disabled || !cosmetics.capePath} onChange={(event) => void save({ ...cosmetics, capeEnabled: event.target.checked })} /></label>
       <div className="inline-actions"><button onClick={() => void choose("cape")} disabled={disabled}>Import PNG</button><button className="secondary" onClick={() => void remove("cape")} disabled={disabled || !cosmetics.capePath}>Reset</button></div>
     </section>
     {message && <p className="notice-banner">{message}</p>}

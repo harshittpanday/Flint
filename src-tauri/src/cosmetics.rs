@@ -21,8 +21,14 @@ pub enum SkinModel {
 pub struct ProfileCosmetics {
     pub skin_path: Option<String>,
     pub cape_path: Option<String>,
+    #[serde(default = "default_skin_enabled")]
+    pub skin_enabled: bool,
     pub skin_model: SkinModel,
     pub cape_enabled: bool,
+}
+
+fn default_skin_enabled() -> bool {
+    true
 }
 
 #[derive(Clone, Copy)]
@@ -119,7 +125,10 @@ pub fn import(
     fs::copy(source, &target)?;
     let mut cosmetics = load(paths, profile_id)?;
     match kind {
-        CosmeticKind::Skin => cosmetics.skin_path = Some(target.to_string_lossy().into_owned()),
+        CosmeticKind::Skin => {
+            cosmetics.skin_path = Some(target.to_string_lossy().into_owned());
+            cosmetics.skin_enabled = true;
+        }
         CosmeticKind::Cape => {
             cosmetics.cape_path = Some(target.to_string_lossy().into_owned());
             cosmetics.cape_enabled = true;
@@ -133,6 +142,7 @@ pub fn remove(paths: &AppPaths, profile_id: &str, kind: CosmeticKind) -> Result<
     let filename = match kind {
         CosmeticKind::Skin => {
             cosmetics.skin_path = None;
+            cosmetics.skin_enabled = false;
             "skin.png"
         }
         CosmeticKind::Cape => {

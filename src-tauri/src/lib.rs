@@ -1,5 +1,6 @@
 mod cosmetics;
 mod error;
+mod flint_client;
 mod importer;
 mod java;
 mod minecraft;
@@ -48,12 +49,20 @@ fn duplicate_profile(paths: State<'_, AppPaths>, id: String) -> Result<Profile> 
 }
 
 #[tauri::command]
-fn set_flint_client_state(
+fn get_flint_client_support(
     paths: State<'_, AppPaths>,
-    id: String,
-    state: profiles::FlintClientState,
+    profile_id: String,
+) -> Result<flint_client::ClientSupport> {
+    Ok(flint_client::support(&profiles::find(&paths, &profile_id)?))
+}
+
+#[tauri::command]
+fn set_flint_client_enabled(
+    paths: State<'_, AppPaths>,
+    profile_id: String,
+    enabled: bool,
 ) -> Result<Profile> {
-    profiles::set_client_state(&paths, &id, state)
+    flint_client::set_enabled(&paths, &profile_id, enabled)
 }
 
 #[tauri::command]
@@ -336,6 +345,7 @@ async fn launch_minecraft(
             )
             .await?;
         }
+        flint_client::prepare(&paths, &profile)?;
         let game_dir = paths.instance_game(&profile.id);
         let launch_arguments = arguments::build(
             &prepared,
@@ -413,7 +423,8 @@ pub fn run() {
             save_profile,
             delete_profile,
             duplicate_profile,
-            set_flint_client_state,
+            get_flint_client_support,
+            set_flint_client_enabled,
             get_profile_cosmetics,
             save_profile_cosmetics,
             import_profile_cosmetic,

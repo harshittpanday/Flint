@@ -8,7 +8,7 @@ import { ImportSetup } from "./components/ImportSetup";
 import { StatusLog } from "./components/StatusLog";
 import { artworkForVersion } from "./artwork";
 import flintLogo from "./assets/flint-logo-256.png";
-import type { JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
+import type { FlintClientSupport, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
 type View = "home" | "profiles" | "mods" | "cosmetics" | "settings";
 
@@ -37,12 +37,16 @@ export default function App() {
   const [versions, setVersions] = useState<MinecraftVersion[]>([]);
   const [settings, setSettings] = useState<LauncherSettings>();
   const [javaRuntimes, setJavaRuntimes] = useState<JavaInfo[]>([]);
+  const [clientSupport, setClientSupport] = useState<FlintClientSupport>();
   const [selectedId, setSelectedId] = useState("");
   const [editing, setEditing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [view, setView] = useState<View>("home");
   const [status, setStatus] = useState<LauncherStatus[]>([initialStatus]);
   const selected = profiles.find((profile) => profile.id === selectedId);
+  const selectedClientState = selected?.flintClientState;
+  const selectedLoader = selected?.loader;
+  const selectedVersion = selected?.minecraftVersion;
   const currentPhase = status.at(-1)?.phase ?? "ready";
   const busy = busyPhases.has(currentPhase);
   const artwork = artworkForVersion(selected?.minecraftVersion);
@@ -73,6 +77,17 @@ export default function App() {
       .catch((error) => setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]));
     return () => { active = false; cleanup?.(); };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    setClientSupport(undefined);
+    if (selectedId) {
+      void api.getFlintClientSupport(selectedId)
+        .then((support) => { if (active) setClientSupport(support); })
+        .catch(() => { if (active) setClientSupport(undefined); });
+    }
+    return () => { active = false; };
+  }, [selectedId, selectedClientState, selectedLoader, selectedVersion]);
 
   const playLabel = useMemo(() => {
     const labels: Partial<Record<LauncherStatus["phase"], string>> = {
@@ -142,6 +157,18 @@ export default function App() {
       await api.launch(selected.id);
       if (settings?.behaviorWhileRunning === "minimize") await getCurrentWindow().minimize();
       if (settings?.behaviorWhileRunning === "hide") await getCurrentWindow().hide();
+    } catch (error) {
+      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+    }
+  }
+
+  async function setClientEnabled(enabled: boolean) {
+    if (!selected) return;
+    try {
+      const updated = await api.setFlintClientEnabled(selected.id, enabled);
+      setProfiles((items) => items.map((profile) => profile.id === updated.id ? updated : profile));
+      setClientSupport(await api.getFlintClientSupport(selected.id));
+      setStatus((items) => [...items, { phase: "ready", message: `Flint Client ${enabled ? "enabled" : "disabled"} for ${selected.name}.` }]);
     } catch (error) {
       setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
     }
@@ -315,7 +342,7 @@ export default function App() {
                 <section className="settings-section">
                   <div className="settings-section-title"><span>Flint Client</span><small>Optional integration foundation</small></div>
                   <div className="settings-fields">
-                    <div className="client-status"><span><strong>{selected ? `Status: ${selected.flintClientState.replace(/([A-Z])/g, " $1").toLowerCase()}` : "Select a profile"}</strong><small>Client installation and in-game modules are not shipped yet. Vanilla and Fabric launches never depend on this state.</small></span><button className="secondary" onClick={() => setView("cosmetics")} disabled={!selected}>Local cosmetics</button></div>
+                    <div className="client-status"><span><strong>{selected ? `Flint Client ${clientSupport?.enabled ? "enabled" : "disabled"}` : "Select a profile"}</strong><small>{clientSupport?.reason ?? "Choose a profile to check compatibility."} The client is optional; ordinary Vanilla and Fabric launches remain independent.</small></span><div className="inline-actions"><button onClick={() => void setClientEnabled(!clientSupport?.enabled)} disabled={!selected || !clientSupport?.supported || busy}>{clientSupport?.enabled ? "Disable" : "Enable"}</button><button className="secondary" onClick={() => setView("cosmetics")} disabled={!selected}>Local cosmetics</button></div></div>
                   </div>
                 </section>
                 <section className="settings-section">
