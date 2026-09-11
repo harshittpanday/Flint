@@ -202,7 +202,7 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span>Flint 0.2.0</span>
+          <span>Flint 0.3.0</span>
           <small>Offline launcher</small>
         </div>
       </aside>

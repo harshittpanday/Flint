@@ -6,9 +6,9 @@ Flint is a Windows-first desktop launcher for Minecraft: Java Edition. The proje
 
 ## Current status
 
-Flint is a **post-v0.2.0 beta** consumer Minecraft launcher. The current milestone adds Flint-owned branding, a safer setup migration assistant, and profile-local cosmetics foundations while preserving dynamic Mojang versions, Fabric, isolated Modrinth mods and presets, Discord presence, and release-safe Windows child processes.
+Flint v0.3.0 is a beta consumer Minecraft launcher. This milestone adds conservative cross-version importing, automatic Flint-managed Temurin runtimes, and an optional Fabric 1.21.11 Flint Client with local-only cosmetics and explicit server AutoAuth.
 
-The frontend/native suites, live Fabric/Modrinth metadata checks, optimized Tauri executable, and NSIS packaging pass on Windows. The project owner manually verified the earlier Minecraft 26.2 main-menu, cache-reuse, Fabric, Modrinth, and multiplayer baseline. Native UI automation was unavailable for this post-beta run, so this document does **not** claim a new main-menu or visual workflow observation. The current MSI regeneration is blocked by the remote session's unavailable Windows Installer service; the prior MSI artifact remains but is not a current build result.
+The project owner manually verified the earlier Minecraft 26.2 main-menu, cache-reuse, Fabric, Modrinth, Discord, and multiplayer baseline. v0.3 automated and packaging results are recorded in `HISTORY.md`; they do **not** substitute for a new in-game cosmetics, AutoAuth, vanilla, or Fabric main-menu observation.
 
 Release profiles can select versions dynamically from Mojang's official catalog; snapshots are opt-in. Version 26.2 remains the default and regression baseline. A version must provide a Mojang Java requirement and metadata compatible with Flint's modern/legacy argument parser.
 
@@ -17,7 +17,7 @@ Release profiles can select versions dynamically from Mojang's official catalog;
 - Create, edit, duplicate, and delete local/offline profiles with validated Minecraft usernames and deletion confirmation.
 - Persist profile identifiers, names, usernames, version selection, and timestamps.
 - Give every profile its own `instances/<profile-id>/game` directory.
-- Detect installed 64-bit Java runtimes and select the major declared by the chosen version, or validate a manual executable.
+- Detect installed 64-bit Java runtimes or securely download, checksum, install, and reuse an isolated Temurin runtime matching Mojang's declared major.
 - Deduplicate Java aliases that resolve to the same runtime installation.
 - Read Mojang's official version manifest and selected version metadata.
 - Download the client, libraries, Windows natives, asset index, assets, and logging configuration.
@@ -32,7 +32,8 @@ Release profiles can select versions dynamically from Mojang's official catalog;
 - Configure RAM, resolution, snapshots, Java selection, Discord presence, and window behavior.
 - Preview and selectively import settings, servers, resources, shaders, configs, explicitly compatible Fabric mods, and opt-in worlds from an existing installation without modifying the source.
 - Validate and store local PNG skins/capes per profile with Classic/Slim and cape-enable preferences.
-- Track a migration-safe optional Flint Client status without making Minecraft launch depend on it.
+- Optionally install the bundled Flint Client into an isolated Fabric 1.21.11 profile for local-only skin/cape rendering.
+- Store explicitly configured per-server AutoAuth passwords in Windows Credential Manager and deliver one user-triggered login/register command through a token-authenticated per-launch loopback bridge.
 - Navigate a polished Home, Profiles, Mods, and Settings interface with keyboard focus, loading, disabled, error, and destructive-confirmation states.
 - Build normal x64 MSI and NSIS Windows installers with Start Menu/uninstall integration supplied by Tauri.
 
@@ -51,7 +52,7 @@ Offline profiles are not authenticated accounts. They cannot join online-mode se
 - Node.js 20.19 or newer and npm
 - Rust stable (MSVC target)
 - Visual Studio 2022 Build Tools with **Desktop development with C++** and a Windows SDK
-- Compatible 64-bit Java runtimes for the Minecraft versions you use (Temurin or Microsoft OpenJDK are suitable)
+- Network access to Eclipse Adoptium when an exact 64-bit Java major is unavailable locally
 - Network access to Mojang/Minecraft metadata and asset hosts on first launch
 
 ## Development
@@ -91,6 +92,7 @@ Flint app data/
 │   └── metadata/                  # cached Mojang catalog
 ├── profiles/profiles.json         # non-secret local profile metadata
 ├── settings/settings.json         # launcher preferences
+├── runtimes/java-<major>/         # verified Flint-managed Temurin runtimes
 └── logs/                          # Flint and Minecraft logs
 ```
 
@@ -99,12 +101,13 @@ Flint app data/
 - Windows is the only launch target currently evaluated by the rule resolver and release pipeline.
 - Very old releases that omit a Java requirement produce an actionable unsupported-metadata error rather than a guessed runtime choice.
 - Microsoft authentication is not implemented.
-- No managed Java download, Forge/NeoForge, resource-pack management, server credentials, updater, or telemetry exists.
+- Forge/NeoForge, Microsoft authentication, resource-pack management, updater, and telemetry are not implemented.
 - Downloads use bounded concurrency but do not yet offer pause/resume or retry controls.
 - Required Modrinth dependencies are installed, but optional dependency recommendations, conflicts, and mod updates are not yet modeled in the UI.
 - Discord Rich Presence uses Flint's public Application ID `1547183366091051019`. The Discord Developer Portal must retain the registered `flint` image asset; RPC remains optional and failure-isolated when Discord is closed or unavailable.
-- Local cosmetics are not Mojang/Microsoft account cosmetics and currently have no in-game effect. The optional Flint Client Fabric mod, its installer/updater, badge, cosmetics rendering, and module registry remain planned architecture—not shipped functionality.
-- Importer mod compatibility is intentionally conservative: only Fabric JAR metadata that explicitly names the target Minecraft version is copied. Unknown ranges/dependencies are shown as warnings and skipped.
+- Flint Client 0.3.0 is intentionally limited to Fabric on Minecraft 1.21.11. Its skins and capes are visible only to the local player and are not Mojang/Microsoft entitlements or server-visible cosmetics.
+- AutoAuth is only for offline-mode servers the user owns or is authorized to use. It requires Flint Client and an explicit in-game `/flintauth login` or `/flintauth register` trigger. Windows Credential Manager access still needs manual verification in an interactive logon session.
+- Importer compatibility is conservative but range-aware: common Fabric predicates, loader requirements, environment, and required local dependencies are evaluated. Exact SHA-1 matches can be reinstalled through Modrinth's compatible-version resolver; unknown metadata remains review-only and incompatible mods remain skipped.
 - MSI and NSIS bundles are unsigned beta artifacts. A post-change vanilla and Fabric main-menu launch still requires manual confirmation.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [TREE.md](TREE.md), and [CHECKBOX.md](CHECKBOX.md) for implementation details and roadmap status.

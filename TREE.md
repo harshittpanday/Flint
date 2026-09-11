@@ -8,10 +8,12 @@ Flint/
 │   │   ├── ProfileForm.tsx      Offline profile editor and validation feedback
 │   │   ├── ImportSetup.tsx      Read-only installation scan, preview, and selective import
 │   │   ├── CosmeticsManager.tsx Profile-local skin/cape preview and preferences
+│   │   ├── AutoAuthManager.tsx  Explicit per-server secure credential workflow
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
 │   ├── App.tsx                  Consumer navigation, settings, profiles, and launch state
 │   ├── artwork.ts               Data-driven release artwork selection and fallback
+│   ├── cosmeticPreview.ts       Path-free PNG byte/blob preview adapter
 │   ├── assets/                  Optimized launcher logo/hero assets
 │   ├── types.ts                 Shared frontend payload shapes
 │   ├── validation.ts            Testable frontend input rules
@@ -35,6 +37,9 @@ Flint/
 │   │   ├── profiles.rs          Validated JSON profile persistence
 │   │   ├── importer.rs          Untrusted setup inspection and bounded selective copying
 │   │   ├── cosmetics.rs         PNG validation and isolated cosmetic persistence
+│   │   ├── flint_client.rs      Embedded optional client lifecycle and protocol config
+│   │   ├── autoauth.rs          Credential Manager rules and ephemeral command bridge
+│   │   ├── runtime_manager.rs   Verified automatic Temurin acquisition and reuse
 │   │   ├── settings.rs          Validated launcher preferences
 │   │   ├── presence.rs          Optional privacy-safe Discord RPC adapter and public actions
 │   │   ├── process_command.rs   Windows release child-process console policy
@@ -43,6 +48,7 @@ Flint/
 │   ├── Cargo.toml               Rust crate dependencies and targets
 │   └── tauri.conf.json          Window, build, bundle, and CSP configuration
 ├── branding/                    Canonical Flint logo source
+├── flint-client/                Optional Fabric 1.21.11 client mod (Loom/Gradle)
 ├── ARCHITECTURE.md              Current and future system design with rationale
 ├── CHECKBOX.md                  Evidence-based product roadmap
 ├── CONTRIBUTING.md              Development and quality rules

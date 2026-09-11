@@ -1,5 +1,22 @@
 # Flint development history
 
+## 2026-09-11 — Flint v0.3 release-readiness milestone
+
+- Made cross-version setup imports fail closed: source-version detection is explicit, unknown or different-version JARs are never copied directly, and SHA-1-identified Modrinth projects are re-resolved for the target profile.
+- Added automatic 64-bit Temurin management based on Mojang's declared Java major. Provider SHA-256, archive size/path bounds, extracted runtime architecture/major, staging cleanup, atomic promotion, coexistence, and reuse are tested; system Java installations are not modified.
+- Added an optional, profile-isolated Flint Client 0.3.0 Fabric mod with an explicit Minecraft 1.21.11 compatibility boundary and protocol-v1 configuration. The remapped artifact implements local-player-only Classic/Slim skins and capes without Mojang uploads or server-visible entitlement claims.
+- Added opt-in, exact-server AutoAuth with configurable login/register templates. Passwords use Windows Credential Manager; instance configuration contains only an opaque reference. An ephemeral token-authenticated loopback bridge responds only to explicit `/flintauth login` or `/flintauth register` triggers and limits attempts without keyboard automation or plugin-detection claims.
+- Refined Home around release artwork and Minecraft version context while preserving the dominant Play action, integrated profile selection, reduced-motion/focus behavior, and narrow-window scrolling.
+- Automated frontend, Rust, Gradle/remap, release, and packaging evidence is recorded only after each command completes. The remote shell could not open Windows Credential Manager (error 1312), so its dummy live round-trip and all actual in-game v0.3 behavior remain manual checks rather than claimed successes.
+
+## 2026-09-10 — Importer and cosmetics regression fixes
+
+- Fixed same-version Fabric mods being left unresolved because the first importer accepted only literal Minecraft-version strings. The parser now evaluates common exact, comparator, bounded, tilde, caret, wildcard, hyphen, OR, and array predicates; checks environment/Fabric Loader requirements; and verifies required mods are present before direct copying.
+- Added four explicit importer outcomes: Compatible, Can Reinstall, Needs Review, and Incompatible. Unknown files remain unselected. SHA-1-identifiable Modrinth files use the existing compatible-version/dependency installer, and Fabric API module JARs are consolidated to prevent duplicates.
+- Fixed broken local skin/cape previews caused by CSP rejecting generated `blob:` sources. A tested byte-to-Blob adapter now avoids raw Windows paths, missing files fall back independently, and reset clears persisted selection. Unicode and spaces are covered by Rust persistence tests.
+- Project-owner manual testing confirmed live Discord Rich Presence states and the `flint` artwork. The two-button payload remains covered by tests; cross-account button visibility remains a manual Discord test.
+- Verification: frontend build/lint passed with 9 tests; Rust format/check passed with 34 tests; the focused live Modrinth SHA-1 resolution test passed for Sodium on Minecraft 1.21.11. An optimized Windows executable was rebuilt for physical retesting. No new Minecraft launch or native cosmetic/importer observation is claimed here.
+
 ## 2026-09-10 — Post-v0.2 beta product milestone
 
 ### Implemented

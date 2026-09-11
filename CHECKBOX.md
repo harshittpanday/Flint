@@ -33,7 +33,8 @@
 - [x] Deduplicate equivalent Java runtime aliases by resolved installation
 - [x] Select an installed 64-bit Java major from Mojang version metadata with actionable errors
 - [x] Support a validated manual Java executable override
-- [ ] Add Flint-managed Java runtimes
+- [x] Download, verify, atomically install, coexist, and reuse Flint-managed Temurin runtimes
+- [ ] Observe a clean missing-Java download and launch from the packaged UI
 
 ## Profiles
 
@@ -47,13 +48,14 @@
 - [x] Scan a selected external Minecraft installation without modifying it
 - [x] Preview/select settings, servers, resources, shaders, configs, compatible mods, and opt-in worlds
 - [x] Reject Flint-managed sources and skip uncertain mods
-- [ ] Resolve mapped imported mods through Modrinth when identity can be established reliably
+- [x] Resolve SHA-1-identified imported mods through compatible Modrinth versions
 
 ## Cosmetics
 
 - [x] Validate/store/preview/reset local skin and cape PNGs per profile
 - [x] Persist Classic/Slim model and cape enabled state
-- [ ] Apply cosmetics in game through an optional Flint Client
+- [x] Build/remap and profile-isolate an optional Fabric 1.21.11 Flint Client
+- [ ] Manually observe local skin/cape rendering in game
 
 ## Instances
 
@@ -97,15 +99,12 @@
 - [ ] Xbox/Minecraft entitlement and profile flow
 - [ ] Secure token storage and refresh
 
-## Server Vault
-
-- [ ] OS-backed encrypted credential storage design
-- [ ] Server-specific credential management
-
 ## AutoAuth
 
-- [ ] Companion protocol and threat model
-- [ ] Optional automatic/login-only/disabled modes
+- [x] Per-server opaque references and Windows Credential Manager adapter
+- [x] Token-authenticated per-launch loopback bridge and explicit Flint Client triggers
+- [x] Configurable login/register templates, enable/update/remove UI, and replay limits
+- [ ] Interactive Credential Manager and owned offline-server end-to-end verification
 
 ## Streamer Mode
 
@@ -116,7 +115,7 @@
 - [x] Failure-isolated, privacy-safe presence adapter and disable setting
 - [x] Configure the reviewed public Flint Discord Application ID
 - [x] Add official Download Flint and Join Discord presence actions
-- [ ] Live Discord activity verification with a configured Flint application ID/assets
+- [x] Live Discord activity/artwork verification (project-owner manual test)
 
 ## UI/UX
 
@@ -140,6 +139,9 @@
 - [x] Rust unit tests
 - [x] Windows release child-process console policy tests
 - [x] Java runtime identity/deduplication tests
+- [x] Managed runtime archive/checksum/promotion tests
+- [x] Flint Client compatibility/configuration/profile-isolation tests
+- [x] AutoAuth template/redaction/state-boundary tests
 - [x] Discord RPC failure-isolation and activity-label tests
 - [x] Live Fabric and Modrinth 26.2 metadata compatibility tests
 - [x] Historical clean-cache and normal-exit evidence for the Milestone 1 baseline

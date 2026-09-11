@@ -26,6 +26,9 @@ The current Tauri capability grants only core main-window behavior. Filesystem a
 - `cosmetics`: PNG validation plus isolated skin/cape files and preferences.
 - `settings`: validated launcher preferences with safe defaults.
 - `java`: deduplicated candidate discovery plus real `java -version` execution.
+- `runtime_manager`: checksum-verified, atomic installation and reuse of versioned Temurin runtimes.
+- `flint_client`: exact compatibility policy, embedded Fabric artifact, and versioned profile-local configuration.
+- `autoauth`: per-server non-secret rules, Windows Credential Manager references, and the ephemeral loopback command bridge.
 - `presence`: optional, failure-isolated Discord IPC activity adapter.
 - `process_command`: common child-command construction and Windows release console policy.
 - `minecraft::catalog`: cached Mojang version catalog with stale fallback.
@@ -49,7 +52,7 @@ The downloader currently buffers each individual response before committing it. 
 
 ## Java and process launch
 
-Flint reads the required Java major from the selected Mojang version metadata. It considers `JAVA_HOME`, `PATH`, and common Windows vendor locations, and accepts only executable 64-bit candidates with the exact required major. Candidate aliases are deduplicated by the runtime's resolved `java.home`, preserving genuinely separate installations. A manual path is validated by the same code.
+Flint reads the required Java major from the selected Mojang version metadata. A manual path has strict precedence; otherwise Flint considers managed runtimes, `JAVA_HOME`, `PATH`, and common Windows vendor locations, accepting only executable 64-bit candidates with the exact major. Candidate aliases are deduplicated by resolved `java.home`. If enabled and no match exists, the runtime manager queries Eclipse Adoptium, downloads a Temurin JRE (or JDK fallback), verifies provider SHA-256 and archive bounds, extracts without traversal/symlinks into staging, executes and validates the candidate, then atomically promotes it to `runtimes/java-<major>`. Majors coexist and are reused without modifying system Java.
 
 Argument construction expands Mojang placeholders, joins the Windows classpath, adds the resolved logging configuration, and creates the conventional deterministic UUID v3 from `OfflinePlayer:<username>`. The access token remains a non-authenticated sentinel; Flint does not forge Microsoft credentials.
 
@@ -61,9 +64,9 @@ Each profile owns `instances/<id>/game`, so its worlds, options, servers, resour
 
 Profiles are non-secret metadata stored in `profiles/profiles.json`; old Milestone 1 records deserialize with safe defaults. Writes use a sibling temporary file before replacement. Confirmed deletion removes the UUID-addressed profile record and isolated instance directory. Duplicate creates a new UUID and empty isolated game directory rather than copying worlds implicitly.
 
-The importer accepts only a recognizable external Minecraft directory, rejects Flint-managed sources, skips symlinks, bounds individual files, and constructs destinations from known categories. It never reads launcher credential databases. Worlds are off by default. Imported Fabric JARs are opened only as ZIP data; Flint never executes them and copies a mod only when `fabric.mod.json` explicitly matches the target version.
+The importer accepts only a recognizable external Minecraft directory, rejects Flint-managed sources, skips symlinks, bounds individual files, and constructs destinations from known categories. It never reads launcher credential databases. Worlds are off by default. Imported Fabric JARs are opened only as ZIP data and never executed. Flint evaluates common Fabric semantic predicates, loader/environment constraints, and required local dependencies into Compatible, Incompatible, or Needs Review. SHA-1-identifiable Modrinth files can instead be reinstalled through the existing dependency resolver. Modular Fabric API JARs are consolidated to avoid duplicate package imports.
 
-Cosmetics live under `instances/<id>/flint/cosmetics`. PNG headers, dimensions, and size are validated before copying. These are local selections for the future optional client and are never represented as official account entitlements.
+Cosmetics live under `instances/<id>/flint/cosmetics`. PNG headers, dimensions, and size are validated before copying. Preview bytes cross IPC by profile ID and become revocable `blob:` URLs; raw Windows paths never enter image sources. For an enabled compatible client, launcher preparation copies only the fixed managed skin/cape files into the game directory and emits protocol-v1 relative paths. The mixin applies them only to the current local player.
 
 ## Fabric and Modrinth
 
@@ -75,11 +78,15 @@ Modrinth search and version queries are filtered by the profile's exact Minecraf
 
 Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity uses the public Flint Application ID `1547183366091051019`, initializes when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
 
+## Optional Flint Client
+
+`flint-client/` is a Fabric Loom project and its remapped 0.3.0 artifact is embedded in the launcher. Enabling is allowed only for Fabric 1.21.11, installs only into that profile's `mods`, and writes `flint/client-v1.json`. Unsupported profile edits disable the managed integration without blocking ordinary Minecraft. The mod has no updater, module framework, cloud cosmetic service, or arbitrary filesystem access.
+
+## AutoAuth
+
+AutoAuth rules live outside profile JSON under the UUID instance and contain an opaque credential reference, exact server address, templates, and enable state. Secrets use Windows Credential Manager. On launch a random-token loopback bridge exists only for the Minecraft child lifetime; endpoint/token travel through its environment, never disk. Flint Client intercepts only explicit `/flintauth login` and `/flintauth register` local triggers, obtains the current server address, and requests one rendered command. Both sides enforce one attempt per connection/session. No server/plugin prompt heuristics are claimed.
+
 ## Future architecture (not implemented)
-
-### Optional Flint Client
-
-Profiles now persist a forward-compatible `Not Installed / Installed / Update Available / Enabled / Disabled` state and local cosmetics settings. No Fabric client artifact, installer, updater, badge, renderer, or module registry is shipped yet; launch preparation intentionally ignores this field.
 
 ### Additional loaders and richer mod solving
 
@@ -91,11 +98,7 @@ Authentication should be a separate account service producing short-lived launch
 
 ### Server Vault
 
-Vault records should reference server and account identifiers while secret material remains in OS-backed protected storage. The master/account credential must never become a default per-server password. Imports and generated credentials need explicit audit-safe lifecycle operations without secret logging.
-
-### AutoAuth companion
-
-AutoAuth requires an authenticated, versioned local protocol between Flint and a narrowly scoped client companion. It must only respond to configured offline-mode servers, distinguish login from registration, avoid chat/clipboard exposure, rate-limit attempts, and support Automatic, Login only, and Disabled policies. A threat model is required before implementation.
+A broader vault, account sharing, generated credentials, automatic plugin detection, and export remain out of scope. Any future design must preserve the current OS-backed secret boundary and explicit audit-safe lifecycle.
 
 ### Streamer mode
 

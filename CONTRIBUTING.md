@@ -25,9 +25,9 @@ npm run tauri build
 
 Use `cargo clippy --all-targets --all-features -- -D warnings` when the native toolchain is available. Launcher changes should also be exercised from a clean throwaway app-data/cache state without deleting a contributor's real instance data.
 
-Set `FLINT_LIVE_TEST=1` when intentionally running the network-backed Fabric and Modrinth compatibility tests. Discord Rich Presence uses the reviewed public Flint Application ID in source and requires the matching `flint` image asset in the Discord Developer Portal.
+Set `FLINT_LIVE_TEST=1` when intentionally running network-backed Fabric, Modrinth, or Adoptium metadata tests. Build the optional client with `flint-client\\gradlew.bat build --no-daemon`; only commit a newly remapped artifact after its source build succeeds. Discord Rich Presence uses the reviewed public Flint Application ID in source and requires the matching `flint` image asset in the Discord Developer Portal.
 
-Importer and cosmetics changes require adversarial fixtures: verify the external source is byte-for-byte unchanged, unsafe/managed paths are rejected, uncertain mods remain unselected, PNG dimensions are validated, and data cannot cross profile IDs. Never execute imported JARs in tests or production. Keep optional Flint Client state out of the Minecraft launch path until a separately reviewed client artifact exists.
+Importer and cosmetics changes require adversarial fixtures: verify the external source is byte-for-byte unchanged, unsafe/managed paths are rejected, uncertain mods remain unselected, PNG dimensions are validated, and data cannot cross profile IDs. Never execute imported JARs in tests or production. AutoAuth changes must use dummy secrets, preserve opaque references, avoid logging request bodies/commands, and test Credential Manager only from an interactive Windows logon session.
 
 ## Conventions
 
