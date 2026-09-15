@@ -48,9 +48,9 @@ public final class FlintClient implements ClientModInitializer {
         loadTextures(client);
         AssetInfo.TextureAsset body = skin != null ? skin : original.body();
         AssetInfo.TextureAsset localCape = cape != null ? cape : original.cape();
-        PlayerSkinType model = "slim".equals(config.cosmetics.skinModel)
-                ? PlayerSkinType.SLIM
-                : PlayerSkinType.WIDE;
+        PlayerSkinType model = skin == null
+                ? original.model()
+                : "slim".equals(config.cosmetics.skinModel) ? PlayerSkinType.SLIM : PlayerSkinType.WIDE;
         return new SkinTextures(body, localCape, original.elytra(), model, false);
     }
 
@@ -106,6 +106,7 @@ public final class FlintClient implements ClientModInitializer {
         }
         Path file = gameDir.resolve(relative).normalize();
         if (!file.startsWith(gameDir) || !Files.isRegularFile(file)) {
+            LOGGER.debug("Flint local {} is enabled but its profile file is unavailable", kind);
             return null;
         }
         try {
@@ -114,7 +115,11 @@ public final class FlintClient implements ClientModInitializer {
                     id,
                     new NativeImageBackedTexture(() -> "Flint local " + kind, image)
             );
-            return new AssetInfo.TextureAssetInfo(id);
+            LOGGER.debug("Flint local {} texture registered", kind);
+            // The one-argument asset constructor converts an ID into a resource-pack path
+            // (textures/<id>.png). Local textures are already registered with TextureManager,
+            // so both the logical ID and render path must remain the dynamic texture ID.
+            return new AssetInfo.TextureAssetInfo(id, id);
         } catch (IOException | RuntimeException error) {
             LOGGER.warn("Could not load Flint local {}: {}", kind, error.getClass().getSimpleName());
             return null;
