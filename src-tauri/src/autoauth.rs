@@ -23,11 +23,23 @@ use zeroize::Zeroize;
 const PROTOCOL_VERSION: u8 = 1;
 const SERVICE: &str = "Flint AutoAuth";
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AutoAuthMode {
+    #[default]
+    Disabled,
+    Login,
+    Register,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredRule {
     id: String,
-    enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mode: Option<AutoAuthMode>,
+    #[serde(default, skip_serializing)]
+    enabled: Option<bool>,
     server_address: String,
     login_template: String,
     registration_template: String,
@@ -47,7 +59,7 @@ struct StoredConfig {
 #[serde(rename_all = "camelCase")]
 pub struct AutoAuthRule {
     pub id: String,
-    pub enabled: bool,
+    pub mode: AutoAuthMode,
     pub server_address: String,
     pub login_template: String,
     pub registration_template: String,
@@ -58,7 +70,7 @@ pub struct AutoAuthRule {
 #[serde(rename_all = "camelCase")]
 pub struct AutoAuthInput {
     pub id: Option<String>,
-    pub enabled: bool,
+    pub mode: AutoAuthMode,
     pub server_address: String,
     pub login_template: String,
     pub registration_template: String,
@@ -69,7 +81,6 @@ pub struct AutoAuthInput {
 struct BridgeRequest {
     token: String,
     server: String,
-    action: String,
 }
 
 #[derive(Serialize)]
@@ -90,6 +101,16 @@ fn protocol_version() -> u8 {
     PROTOCOL_VERSION
 }
 
+impl StoredRule {
+    fn effective_mode(&self) -> AutoAuthMode {
+        self.mode.unwrap_or(if self.enabled.unwrap_or(false) {
+            AutoAuthMode::Login
+        } else {
+            AutoAuthMode::Disabled
+        })
+    }
+}
+
 fn file(paths: &AppPaths, profile_id: &str) -> PathBuf {
     paths
         .instance(profile_id)
@@ -102,13 +123,16 @@ pub fn list(paths: &AppPaths, profile_id: &str) -> Result<Vec<AutoAuthRule>> {
     Ok(load(paths, profile_id)?
         .rules
         .into_iter()
-        .map(|rule| AutoAuthRule {
-            id: rule.id,
-            enabled: rule.enabled,
-            server_address: rule.server_address,
-            login_template: rule.login_template,
-            registration_template: rule.registration_template,
-            has_credential: true,
+        .map(|rule| {
+            let mode = rule.effective_mode();
+            AutoAuthRule {
+                id: rule.id,
+                mode,
+                server_address: rule.server_address,
+                login_template: rule.login_template,
+                registration_template: rule.registration_template,
+                has_credential: true,
+            }
         })
         .collect())
 }
@@ -145,7 +169,8 @@ pub fn save(paths: &AppPaths, profile_id: &str, input: AutoAuthInput) -> Result<
     }
     let rule = StoredRule {
         id: input.id.unwrap_or_else(|| Uuid::new_v4().to_string()),
-        enabled: input.enabled,
+        mode: Some(input.mode),
+        enabled: None,
         server_address: server,
         login_template: input.login_template,
         registration_template: input.registration_template,
@@ -199,14 +224,19 @@ pub fn start_session(paths: &AppPaths, profile_id: &str) -> Result<Option<AutoAu
     let rules: Vec<_> = load(paths, profile_id)?
         .rules
         .into_iter()
-        .filter(|rule| rule.enabled)
+        .filter(|rule| rule.effective_mode() != AutoAuthMode::Disabled)
         .collect();
     if rules.is_empty() {
+        tracing::debug!("AutoAuth: disabled or unconfigured");
         return Ok(None);
     }
     let listener = TcpListener::bind("127.0.0.1:0").map_err(bridge_error)?;
     listener.set_nonblocking(true).map_err(bridge_error)?;
     let endpoint = listener.local_addr().map_err(bridge_error)?.to_string();
+    tracing::debug!(
+        rule_count = rules.len(),
+        "AutoAuth: configured; bridge available"
+    );
     let token = Uuid::new_v4().to_string();
     let worker_token = token.clone();
     let shutdown = Arc::new(AtomicBool::new(false));
@@ -264,45 +294,76 @@ fn handle_request(
         .filter(|count| *count > 0)
         .and_then(|_| serde_json::from_str::<BridgeRequest>(&line).ok());
     let response = parsed
-        .and_then(|request| {
-            if request.token != token || !matches!(request.action.as_str(), "login" | "register") {
-                return None;
-            }
-            let server = request.server.trim().to_ascii_lowercase();
-            let rule = rules
-                .iter()
-                .find(|rule| rule.server_address.eq_ignore_ascii_case(&server))?;
-            if !claim_attempt(attempted, &rule.id, &request.action) {
-                return Some(BridgeResponse {
-                    command: None,
-                    error: Some("already_attempted"),
-                });
-            }
-            let mut password = credential(&rule.credential_ref).ok()?.get_password().ok()?;
-            let template = if request.action == "register" {
-                &rule.registration_template
-            } else {
-                &rule.login_template
-            };
-            let command = render_command(template, &password);
-            password.zeroize();
-            Some(BridgeResponse {
-                command: Some(command),
-                error: None,
+        .map(|request| {
+            resolve_request(request, token, rules, attempted, |reference| {
+                credential(reference).ok()?.get_password().ok()
             })
         })
-        .unwrap_or(BridgeResponse {
-            command: None,
-            error: Some("request_rejected"),
-        });
+        .unwrap_or_else(|| rejected("request_rejected"));
     if let Ok(bytes) = serde_json::to_vec(&response) {
         let _ = stream.write_all(&bytes);
         let _ = stream.write_all(b"\n");
     }
 }
 
-fn claim_attempt(attempted: &mut HashSet<String>, rule_id: &str, action: &str) -> bool {
-    attempted.insert(format!("{rule_id}:{action}"))
+fn resolve_request<F>(
+    request: BridgeRequest,
+    token: &str,
+    rules: &[StoredRule],
+    attempted: &mut HashSet<String>,
+    mut load_credential: F,
+) -> BridgeResponse
+where
+    F: FnMut(&str) -> Option<String>,
+{
+    if request.token != token {
+        tracing::debug!("AutoAuth: authentication failed (invalid bridge token)");
+        return rejected("request_rejected");
+    }
+    let server = normalize_server(&request.server);
+    let Some(rule) = rules
+        .iter()
+        .find(|rule| normalize_server(&rule.server_address) == server)
+    else {
+        tracing::debug!("AutoAuth: authentication failed (server not configured)");
+        return rejected("server_not_configured");
+    };
+    tracing::debug!("AutoAuth: server matched");
+    if !claim_attempt(attempted, &rule.id) {
+        tracing::debug!("AutoAuth: authentication failed (replay blocked)");
+        return rejected("already_attempted");
+    }
+    let Some(mut password) = load_credential(&rule.credential_ref) else {
+        tracing::debug!("AutoAuth: authentication failed (credential unavailable)");
+        return rejected("credential_unavailable");
+    };
+    tracing::debug!("AutoAuth: credential retrieved");
+    let template = match rule.effective_mode() {
+        AutoAuthMode::Login => &rule.login_template,
+        AutoAuthMode::Register => &rule.registration_template,
+        AutoAuthMode::Disabled => {
+            password.zeroize();
+            return rejected("disabled");
+        }
+    };
+    let command = render_command(template, &password);
+    password.zeroize();
+    tracing::debug!("AutoAuth: authentication requested");
+    BridgeResponse {
+        command: Some(command),
+        error: None,
+    }
+}
+
+fn rejected(error: &'static str) -> BridgeResponse {
+    BridgeResponse {
+        command: None,
+        error: Some(error),
+    }
+}
+
+fn claim_attempt(attempted: &mut HashSet<String>, rule_id: &str) -> bool {
+    attempted.insert(rule_id.to_owned())
 }
 
 fn credential(reference: &str) -> Result<keyring::Entry> {
@@ -324,7 +385,7 @@ fn bridge_error(_error: std::io::Error) -> AppError {
 }
 
 fn validate_server(value: &str) -> Result<String> {
-    let value = value.trim().to_ascii_lowercase();
+    let value = normalize_server(value);
     if value.is_empty()
         || value.len() > 255
         || value.contains(char::is_whitespace)
@@ -338,6 +399,17 @@ fn validate_server(value: &str) -> Result<String> {
         ));
     }
     Ok(value)
+}
+
+fn normalize_server(value: &str) -> String {
+    let value = value.trim().to_ascii_lowercase();
+    if let Some(host) = value.strip_suffix(":25565") {
+        host.trim_end_matches('.').to_owned()
+    } else if value.starts_with('[') {
+        value
+    } else {
+        value.trim_end_matches('.').to_owned()
+    }
 }
 
 fn validate_template(value: &str, registration: bool) -> Result<()> {
@@ -416,7 +488,7 @@ mod tests {
     fn server_validation_rejects_urls_and_whitespace() {
         assert_eq!(
             validate_server(" Play.Example.Net:25565 ").unwrap(),
-            "play.example.net:25565"
+            "play.example.net"
         );
         assert!(validate_server("https://example.net").is_err());
         assert!(validate_server("bad server").is_err());
@@ -428,7 +500,8 @@ mod tests {
             protocol_version: 1,
             rules: vec![StoredRule {
                 id: "rule".into(),
-                enabled: true,
+                mode: Some(AutoAuthMode::Login),
+                enabled: None,
                 server_address: "localhost".into(),
                 login_template: "/login {password}".into(),
                 registration_template: "/register {password} {password}".into(),
@@ -442,11 +515,93 @@ mod tests {
     }
 
     #[test]
-    fn one_command_is_allowed_per_rule_and_action() {
+    fn one_command_is_allowed_per_rule() {
         let mut attempts = HashSet::new();
-        assert!(claim_attempt(&mut attempts, "rule", "login"));
-        assert!(!claim_attempt(&mut attempts, "rule", "login"));
-        assert!(claim_attempt(&mut attempts, "rule", "register"));
+        assert!(claim_attempt(&mut attempts, "rule"));
+        assert!(!claim_attempt(&mut attempts, "rule"));
+    }
+
+    #[test]
+    fn server_matching_normalizes_case_default_port_and_trailing_dot() {
+        assert_eq!(
+            normalize_server(" Play.Example.Net:25565 "),
+            "play.example.net"
+        );
+        assert_eq!(normalize_server("play.example.net."), "play.example.net");
+    }
+
+    #[test]
+    fn legacy_enabled_rules_migrate_to_login_mode() {
+        let rule: StoredRule = serde_json::from_str(
+            r#"{
+            "id":"legacy","enabled":true,"serverAddress":"play.example.net",
+            "loginTemplate":"/login {password}",
+            "registrationTemplate":"/register {password} {password}",
+            "credentialRef":"ref"
+        }"#,
+        )
+        .unwrap();
+        assert_eq!(rule.effective_mode(), AutoAuthMode::Login);
+    }
+
+    #[test]
+    fn bridge_selects_configured_mode_and_blocks_replay() {
+        let rules = vec![test_rule(AutoAuthMode::Register)];
+        let mut attempts = HashSet::new();
+        let response = resolve_request(
+            BridgeRequest {
+                token: "token".into(),
+                server: "PLAY.EXAMPLE.NET:25565".into(),
+            },
+            "token",
+            &rules,
+            &mut attempts,
+            |_| Some("dummy-secret".into()),
+        );
+        assert_eq!(
+            response.command.as_deref(),
+            Some("register dummy-secret dummy-secret")
+        );
+        let replay = resolve_request(
+            BridgeRequest {
+                token: "token".into(),
+                server: "play.example.net".into(),
+            },
+            "token",
+            &rules,
+            &mut attempts,
+            |_| Some("dummy-secret".into()),
+        );
+        assert_eq!(replay.error, Some("already_attempted"));
+    }
+
+    #[test]
+    fn missing_credential_fails_closed_without_a_command() {
+        let mut attempts = HashSet::new();
+        let response = resolve_request(
+            BridgeRequest {
+                token: "token".into(),
+                server: "play.example.net".into(),
+            },
+            "token",
+            &[test_rule(AutoAuthMode::Login)],
+            &mut attempts,
+            |_| None,
+        );
+        assert!(response.command.is_none());
+        assert_eq!(response.error, Some("credential_unavailable"));
+    }
+
+    fn test_rule(mode: AutoAuthMode) -> StoredRule {
+        StoredRule {
+            id: "rule".into(),
+            mode: Some(mode),
+            enabled: None,
+            server_address: "play.example.net".into(),
+            login_template: "/login {password}".into(),
+            registration_template: "/register {password} {password}".into(),
+            credential_ref: "ref".into(),
+        }
     }
 
     #[test]

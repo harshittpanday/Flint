@@ -123,7 +123,7 @@ export interface FlintClientSupport {
 
 export interface AutoAuthRule {
   id: string;
-  enabled: boolean;
+  mode: AutoAuthMode;
   serverAddress: string;
   loginTemplate: string;
   registrationTemplate: string;
@@ -132,12 +132,14 @@ export interface AutoAuthRule {
 
 export interface AutoAuthInput {
   id?: string;
-  enabled: boolean;
+  mode: AutoAuthMode;
   serverAddress: string;
   loginTemplate: string;
   registrationTemplate: string;
   password?: string;
 }
+
+export type AutoAuthMode = "disabled" | "login" | "register";
 
 export type ImportCategory = "settings" | "servers" | "resourcePacks" | "shaderPacks" | "configs" | "mods" | "worlds";
 export type ImportCompatibility = "compatible" | "resolvable" | "incompatible" | "unknown";

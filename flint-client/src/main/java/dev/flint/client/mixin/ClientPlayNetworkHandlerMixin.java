@@ -14,11 +14,4 @@ abstract class ClientPlayNetworkHandlerMixin {
     private void flint$beginAutoAuthConnection(GameJoinS2CPacket packet, CallbackInfo callback) {
         AutoAuthClient.beginConnection();
     }
-
-    @Inject(method = "sendChatCommand", at = @At("HEAD"), cancellable = true)
-    private void flint$interceptAutoAuth(String command, CallbackInfo callback) {
-        if (AutoAuthClient.intercept(command, (ClientPlayNetworkHandler) (Object) this)) {
-            callback.cancel();
-        }
-    }
 }

@@ -4,7 +4,8 @@ import com.google.gson.Gson;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -15,46 +16,53 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 
 public final class AutoAuthClient {
+    private static final Logger LOGGER = LoggerFactory.getLogger("Flint AutoAuth");
     private static final Gson GSON = new Gson();
     private static final String ENDPOINT = System.getenv("FLINT_AUTOAUTH_ENDPOINT");
     private static final String TOKEN = System.getenv("FLINT_AUTOAUTH_TOKEN");
     private static final AutoAuthStateMachine STATE = new AutoAuthStateMachine();
+    private static final int READY_TICKS = 40;
+    private static int readyTicks;
 
     private AutoAuthClient() {
     }
 
     public static void beginConnection() {
         STATE.beginConnection();
+        readyTicks = 0;
+        if (ENDPOINT != null && TOKEN != null) {
+            LOGGER.debug("AutoAuth: configured; waiting for client readiness");
+        }
     }
 
-    public static boolean intercept(String command, ClientPlayNetworkHandler handler) {
-        if (!command.equals("flintauth login") && !command.equals("flintauth register")) {
-            return false;
+    public static void tick(MinecraftClient client) {
+        if (ENDPOINT == null || TOKEN == null || STATE.state() != AutoAuthStateMachine.State.CONNECTED) {
+            return;
         }
-        MinecraftClient client = MinecraftClient.getInstance();
         ServerInfo serverInfo = client.getCurrentServerEntry();
-        if (serverInfo == null || ENDPOINT == null || TOKEN == null) {
-            notifyPlayer(client, "AutoAuth is not configured for this session.");
-            return true;
+        ClientPlayNetworkHandler handler = client.getNetworkHandler();
+        if (serverInfo == null || handler == null || client.player == null) {
+            readyTicks = 0;
+            return;
+        }
+        if (++readyTicks < READY_TICKS) {
+            return;
         }
         String server = serverInfo.address;
         if (!STATE.awaitAuthentication(server)) {
-            notifyPlayer(client, "AutoAuth already attempted for this connection.");
-            return true;
+            return;
         }
-        String action = command.endsWith("register") ? "register" : "login";
         STATE.markAttempted();
-        Thread worker = new Thread(() -> requestCommand(client, handler, server, action), "Flint-AutoAuth");
+        LOGGER.debug("AutoAuth: bridge available; authentication requested");
+        Thread worker = new Thread(() -> requestCommand(client, handler, server), "Flint-AutoAuth");
         worker.setDaemon(true);
         worker.start();
-        return true;
     }
 
     private static void requestCommand(
             MinecraftClient client,
             ClientPlayNetworkHandler handler,
-            String server,
-            String action
+            String server
     ) {
         BridgeResponse response = null;
         try {
@@ -67,35 +75,32 @@ public final class AutoAuthClient {
                 socket.connect(new InetSocketAddress("127.0.0.1", port), 1500);
                 socket.setSoTimeout(2000);
                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
-                writer.write(GSON.toJson(new BridgeRequest(TOKEN, server, action)));
+                writer.write(GSON.toJson(new BridgeRequest(TOKEN, server)));
                 writer.newLine();
                 writer.flush();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
                 response = GSON.fromJson(reader.readLine(), BridgeResponse.class);
             }
         } catch (Exception ignored) {
-            // Details could contain private local state, so only a generic in-game status is shown.
+            LOGGER.debug("AutoAuth: authentication failed; bridge unavailable or rejected the request");
         }
         BridgeResponse result = response;
         client.execute(() -> {
-            if (result != null && result.command != null && !result.command.isBlank()) {
+            if (client.getNetworkHandler() == handler
+                    && result != null
+                    && result.command != null
+                    && !result.command.isBlank()) {
                 handler.sendChatCommand(result.command);
                 STATE.complete();
-                notifyPlayer(client, "AutoAuth command sent once.");
+                LOGGER.debug("AutoAuth: authentication completed");
             } else {
                 STATE.complete();
-                notifyPlayer(client, "AutoAuth could not provide a command for this server.");
+                LOGGER.debug("AutoAuth: authentication failed safely");
             }
         });
     }
 
-    private static void notifyPlayer(MinecraftClient client, String message) {
-        if (client.player != null) {
-            client.player.sendMessage(Text.literal("[Flint] " + message), false);
-        }
-    }
-
-    private record BridgeRequest(String token, String server, String action) {
+    private record BridgeRequest(String token, String server) {
     }
 
     private static final class BridgeResponse {
