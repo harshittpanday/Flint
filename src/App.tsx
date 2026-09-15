@@ -8,7 +8,6 @@ import { ImportSetup } from "./components/ImportSetup";
 import { AutoAuthManager } from "./components/AutoAuthManager";
 import { StatusLog } from "./components/StatusLog";
 import { HeroMedia } from "./components/HeroMedia";
-import { NewsFeed } from "./components/NewsFeed";
 import { NavigationIcon } from "./components/NavigationIcon";
 import { artworkForVersion } from "./artwork";
 import { HOME_NEWS } from "./news";
@@ -67,6 +66,9 @@ export default function App() {
   const busy = busyPhases.has(currentPhase);
   const showHomeStatus = currentPhase !== "ready";
   const artwork = artworkForVersion(selected?.minecraftVersion);
+  const recentProfiles = useMemo(() => [...profiles]
+    .sort((left, right) => Date.parse(right.lastPlayedAt ?? "") - Date.parse(left.lastPlayedAt ?? ""))
+    .slice(0, 3), [profiles]);
 
   useEffect(() => {
     let active = true;
@@ -203,13 +205,6 @@ export default function App() {
     setImporting(false);
   }
 
-  function openImport() {
-    if (!selected) return;
-    setView("profiles");
-    setEditing(false);
-    setImporting(true);
-  }
-
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -226,7 +221,7 @@ export default function App() {
         </nav>
         <div className="sidebar-footer">
           <span>Flint 0.3.0</span>
-          <small>Offline launcher</small>
+          <small><i className="connection-dot" />Local mode</small>
         </div>
       </aside>
 
@@ -245,32 +240,28 @@ export default function App() {
               {selected ? (
                 <section className="game-stage">
                   <HeroMedia artwork={artwork} />
-                  <label className="home-profile-control">
-                    <span className="profile-emblem" aria-hidden="true">{selected.loader === "fabric" ? "F" : "V"}</span>
-                    <span className="profile-control-copy"><small>Selected profile</small><strong>{selected.name}</strong><em>{selected.loader === "fabric" ? "Fabric profile" : "Vanilla profile"}</em></span>
-                    <select aria-label="Selected profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
-                      {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
-                    </select>
-                    <span className="profile-chevron" aria-hidden="true">⌄</span>
-                  </label>
-                  <div className="launch-deck">
-                    <div className="launch-title">
-                      <span className="stage-overline">Ready to launch</span>
-                      <span className="eyebrow">Minecraft Java Edition</span>
-                      <h1><span>Minecraft</span><strong>{selected.minecraftVersion}</strong></h1>
-                      <p>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}<i />{formatPreset(selected)} preset</p>
+                  <div className="launcher-unit">
+                    <span className="stage-overline">Ready to play</span>
+                    <div className="player-profile">
+                      <span className="hero-avatar" aria-hidden="true">{selected.username.charAt(0).toUpperCase()}</span>
+                      <div className="hero-player-copy">
+                        <strong>{selected.username}</strong>
+                        <span>{selected.name}</span>
+                        <small>Minecraft {selected.minecraftVersion}<i />{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}</small>
+                        <em>{formatPreset(selected)} preset</em>
+                      </div>
+                      <label className="profile-change">
+                        <span>Change profile</span><b aria-hidden="true">⌄</b>
+                        <select aria-label="Change profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
+                          {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+                        </select>
+                      </label>
                     </div>
                     <button className={`play-button ${currentPhase}`} disabled={busy} onClick={launch}>
                       <span className="play-icon" aria-hidden="true">▶</span>
-                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : "Launch Minecraft"}</small></span>
+                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `Minecraft ${selected.minecraftVersion}`}</small></span>
                     </button>
                   </div>
-                  <dl className="session-rail">
-                    <div><dt>Last played</dt><dd>{formatLastPlayed(selected.lastPlayedAt)}</dd></div>
-                    <div><dt>Memory</dt><dd>{selected.memoryMb} MB</dd></div>
-                    <div><dt>Java</dt><dd>{settings?.automaticJavaManagement ? "Managed" : settings?.automaticJava ? "Automatic" : "Manual"}</dd></div>
-                    <div><dt>Flint Client</dt><dd>{formatClientState(selected)}</dd></div>
-                  </dl>
                 </section>
               ) : (
                 <section className="empty-state">
@@ -280,19 +271,33 @@ export default function App() {
                   <button className="primary-button" onClick={beginCreate}>Create profile</button>
                 </section>
               )}
-              <div className="home-grid">
+              {selected && <div className="launcher-content">
                 {showHomeStatus && <div className="home-status"><StatusLog entries={status} /></div>}
-                <NewsFeed items={HOME_NEWS} />
-                <section className="home-section quick-section">
-                  <div className="home-section-heading"><span className="eyebrow">Launcher</span><h2>Quick access</h2></div>
-                  <div className="quick-actions">
-                    <button onClick={() => selectView("mods")}><NavigationIcon name="mods" /><span><strong>Mods</strong><small>Manage this profile</small></span><b aria-hidden="true">→</b></button>
-                    <button onClick={() => selectView("profiles")}><NavigationIcon name="profiles" /><span><strong>Profiles</strong><small>Switch or create</small></span><b aria-hidden="true">→</b></button>
-                    <button onClick={openImport} disabled={!selected}><NavigationIcon name="home" /><span><strong>Import setup</strong><small>Bring in local files</small></span><b aria-hidden="true">→</b></button>
-                    <button onClick={() => selectView("settings")}><NavigationIcon name="settings" /><span><strong>Settings</strong><small>Runtime and launcher</small></span><b aria-hidden="true">→</b></button>
+                <section className="launcher-pane recent-pane">
+                  <div className="launcher-pane-heading"><span>Recent</span><small>Profiles</small></div>
+                  <div className="recent-list">
+                    {recentProfiles.map((profile) => (
+                      <button key={profile.id} className={profile.id === selectedId ? "selected" : ""} onClick={() => setSelectedId(profile.id)}>
+                        <span className="recent-icon" aria-hidden="true">{profile.loader === "fabric" ? "F" : "V"}</span>
+                        <span><strong>{profile.name}</strong><small>Minecraft {profile.minecraftVersion} · {formatLastPlayed(profile.lastPlayedAt)}</small></span>
+                        <b aria-hidden="true">{profile.id === selectedId ? "Playing" : "Select"}</b>
+                      </button>
+                    ))}
                   </div>
                 </section>
-              </div>
+                <section className="launcher-pane setup-pane">
+                  <div className="launcher-pane-heading"><span>Your setup</span><small>{selected.name}</small></div>
+                  <div className="setup-summary">
+                    <span className="setup-mark" aria-hidden="true">{selected.loader === "fabric" ? "F" : "V"}</span>
+                    <div><strong>{formatPreset(selected)} preset</strong><small>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"} · Minecraft {selected.minecraftVersion}</small></div>
+                  </div>
+                  <div className="setup-footer"><span>Flint Client <strong>{formatClientState(selected)}</strong></span><button onClick={() => selectView(selected.loader === "fabric" ? "mods" : "profiles")}>{selected.loader === "fabric" ? "Manage mods" : "View profile"} <b aria-hidden="true">→</b></button></div>
+                </section>
+                <article className="home-news-strip">
+                  <span>{HOME_NEWS[0].category}</span><strong>{HOME_NEWS[0].title}</strong><p>{HOME_NEWS[0].summary}</p>
+                  <button onClick={() => selectView("settings")}>Launcher details <b aria-hidden="true">→</b></button>
+                </article>
+              </div>}
             </div>
           )}
 
