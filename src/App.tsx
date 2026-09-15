@@ -8,7 +8,9 @@ import { ImportSetup } from "./components/ImportSetup";
 import { AutoAuthManager } from "./components/AutoAuthManager";
 import { StatusLog } from "./components/StatusLog";
 import { HeroMedia } from "./components/HeroMedia";
+import { NewsFeed } from "./components/NewsFeed";
 import { artworkForVersion } from "./artwork";
+import { HOME_NEWS } from "./news";
 import flintLogo from "./assets/flint-logo-256.png";
 import type { FlintClientSupport, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
@@ -94,7 +96,7 @@ export default function App() {
 
   const playLabel = useMemo(() => {
     const labels: Partial<Record<LauncherStatus["phase"], string>> = {
-      preparing: "Preparing…", downloading: "Downloading…", launching: "Launching…", running: "Minecraft is running",
+      preparing: "Preparing", downloading: "Downloading", launching: "Launching", running: "Playing", failed: "Launch failed", finished: "Play again",
     };
     return labels[currentPhase] ?? "Play";
   }, [currentPhase]);
@@ -229,31 +231,27 @@ export default function App() {
           {view === "home" && (
             <div className="home-view">
               <div className="page-heading home-intro">
-                <span className="eyebrow">Minecraft Java Edition</span>
                 <h1>Welcome back{selected ? `, ${selected.username}` : ""}.</h1>
-                <p>Your game is ready from one place.</p>
               </div>
               {selected ? (
                 <section className="play-hero">
                   <HeroMedia artwork={artwork} />
-                  <div className="hero-copy">
-                    <span className="eyebrow">Ready to launch</span>
-                    <h2>Minecraft {selected.minecraftVersion}</h2>
-                    <div className="profile-tags">
-                      <span>{selected.name}</span>
-                      <span>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}</span>
-                      {selected.loader === "fabric" && <span>{formatPreset(selected)} preset</span>}
-                    </div>
-                  </div>
                   <label className="profile-switcher">Profile
                     <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
                       {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                     </select>
                   </label>
-                  <button className="play-button" disabled={busy} onClick={launch}>
-                    <span className="play-icon" aria-hidden="true">▶</span>
-                    <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `as ${selected.username}`}</small></span>
-                  </button>
+                  <div className="hero-content">
+                    <div className="hero-copy">
+                      <span className="eyebrow">Minecraft Java Edition</span>
+                      <h2>Minecraft {selected.minecraftVersion}</h2>
+                      <p className="hero-metadata">{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}<span aria-hidden="true">•</span>{formatPreset(selected)} preset</p>
+                    </div>
+                    <button className={`play-button ${currentPhase}`} disabled={busy} onClick={launch}>
+                      <span className="play-icon" aria-hidden="true">▶</span>
+                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `as ${selected.username}`}</small></span>
+                    </button>
+                  </div>
                 </section>
               ) : (
                 <section className="empty-state">
@@ -265,11 +263,7 @@ export default function App() {
               )}
               <div className="home-grid">
                 {showHomeStatus && <div className="home-status"><StatusLog entries={status} /></div>}
-                <section className="home-section news-section">
-                  <div className="home-section-heading"><span className="eyebrow">News</span><h2>From Flint</h2></div>
-                  <article className="news-item"><span>Flint 0.3</span><strong>A stronger launcher foundation</strong><p>Automatic Java setup, isolated Fabric profiles, safe imports, and local-first launcher integrations.</p></article>
-                  <article className="news-item"><span>Compatibility</span><strong>Flint Client preview</strong><p>Local cosmetics and AutoAuth are currently limited to supported Fabric 1.21.11 profiles.</p></article>
-                </section>
+                <NewsFeed items={HOME_NEWS} />
                 <section className="home-section quick-section">
                   <div className="home-section-heading"><span className="eyebrow">Quick actions</span><h2>Jump back in</h2></div>
                   <div className="quick-actions">

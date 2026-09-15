@@ -35,9 +35,18 @@ export function HeroMedia({ artwork }: { artwork: ReleaseArtwork }) {
     };
   }, [artwork.video, reducedMotion]);
 
+  useEffect(() => {
+    const element = video.current;
+    return () => {
+      element?.pause();
+      element?.removeAttribute("src");
+      element?.load();
+    };
+  }, [artwork.video]);
+
   const useVideo = Boolean(artwork.video) && failedVideo !== artwork.video && !reducedMotion;
   return <div className="hero-media" role="img" aria-label={artwork.alt}>
-    {useVideo ? <video ref={video} src={artwork.video} poster={artwork.image} muted autoPlay loop playsInline preload="metadata" onError={() => setFailedVideo(artwork.video)} style={{ objectPosition: artwork.position }} />
+    {useVideo ? <video key={artwork.video} ref={video} src={artwork.video} poster={artwork.image} muted autoPlay loop playsInline preload="metadata" onError={() => setFailedVideo(artwork.video)} style={{ objectPosition: artwork.position }} />
       : <img src={artwork.image} alt="" style={{ objectPosition: artwork.position }} />}
   </div>;
 }

@@ -1,4 +1,4 @@
-import defaultHero from "./assets/flint-hero-720.jpg";
+import minecraftLandscapeHero from "./assets/minecraft-landscape-hero.webp";
 
 export interface ReleaseArtwork {
   image: string;
@@ -8,9 +8,9 @@ export interface ReleaseArtwork {
 }
 
 export const DEFAULT_ARTWORK: ReleaseArtwork = {
-  image: defaultHero,
-  alt: "Pixel-art Flint logo with a warm ember glow",
-  position: "72% center",
+  image: minecraftLandscapeHero,
+  alt: "Cinematic voxel mountain valley at sunrise",
+  position: "center center",
 };
 
 export const VERSION_ARTWORK: Record<string, ReleaseArtwork> = {};

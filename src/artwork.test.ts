@@ -4,6 +4,8 @@ import { artworkForVersion, DEFAULT_ARTWORK, VERSION_ARTWORK } from "./artwork";
 describe("release artwork selection", () => {
   it("uses the Flint-owned fallback for versions without dedicated artwork", () => {
     expect(artworkForVersion("26.2")).toBe(DEFAULT_ARTWORK);
+    expect(DEFAULT_ARTWORK.image).toContain("minecraft-landscape-hero");
+    expect(DEFAULT_ARTWORK.image).not.toContain("flint-logo");
   });
 
   it("keeps version-specific artwork data driven", () => {
