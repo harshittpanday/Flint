@@ -1,13 +1,14 @@
 import defaultHero from "./assets/flint-hero-720.jpg";
 
 export interface ReleaseArtwork {
-  hero: string;
+  image: string;
+  video?: string;
   alt: string;
   position: string;
 }
 
 export const DEFAULT_ARTWORK: ReleaseArtwork = {
-  hero: defaultHero,
+  image: defaultHero,
   alt: "Pixel-art Flint logo with a warm ember glow",
   position: "72% center",
 };

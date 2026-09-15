@@ -7,8 +7,8 @@ describe("release artwork selection", () => {
   });
 
   it("keeps version-specific artwork data driven", () => {
-    VERSION_ARTWORK["test-version"] = { hero: "test.png", alt: "Test artwork", position: "top" };
-    expect(artworkForVersion("test-version")).toEqual({ hero: "test.png", alt: "Test artwork", position: "top" });
+    VERSION_ARTWORK["test-version"] = { image: "test.png", video: "test.webm", alt: "Test artwork", position: "top" };
+    expect(artworkForVersion("test-version")).toEqual({ image: "test.png", video: "test.webm", alt: "Test artwork", position: "top" });
     delete VERSION_ARTWORK["test-version"];
   });
 });

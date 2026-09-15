@@ -7,6 +7,7 @@ import { CosmeticsManager } from "./components/CosmeticsManager";
 import { ImportSetup } from "./components/ImportSetup";
 import { AutoAuthManager } from "./components/AutoAuthManager";
 import { StatusLog } from "./components/StatusLog";
+import { HeroMedia } from "./components/HeroMedia";
 import { artworkForVersion } from "./artwork";
 import flintLogo from "./assets/flint-logo-256.png";
 import type { FlintClientSupport, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
@@ -50,6 +51,7 @@ export default function App() {
   const selectedVersion = selected?.minecraftVersion;
   const currentPhase = status.at(-1)?.phase ?? "ready";
   const busy = busyPhases.has(currentPhase);
+  const showHomeStatus = currentPhase !== "ready";
   const artwork = artworkForVersion(selected?.minecraftVersion);
 
   useEffect(() => {
@@ -187,6 +189,13 @@ export default function App() {
     setImporting(false);
   }
 
+  function openImport() {
+    if (!selected) return;
+    setView("profiles");
+    setEditing(false);
+    setImporting(true);
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -226,7 +235,7 @@ export default function App() {
               </div>
               {selected ? (
                 <section className="play-hero">
-                  <img className="hero-artwork" src={artwork.hero} alt={artwork.alt} style={{ objectPosition: artwork.position }} />
+                  <HeroMedia artwork={artwork} />
                   <div className="hero-copy">
                     <span className="eyebrow">Ready to launch</span>
                     <h2>Minecraft {selected.minecraftVersion}</h2>
@@ -255,14 +264,20 @@ export default function App() {
                 </section>
               )}
               <div className="home-grid">
-                <StatusLog entries={status} />
-                <section className="quiet-panel">
-                  <span className="eyebrow">At a glance</span>
-                  <dl>
-                    <div><dt>Profile</dt><dd>{selected?.name ?? "Not selected"}</dd></div>
-                    <div><dt>Last played</dt><dd>{formatLastPlayed(selected?.lastPlayedAt)}</dd></div>
-                    <div><dt>Runtime setup</dt><dd>{settings?.automaticJavaManagement ? "Managed automatically" : "Use installed Java"}</dd></div>
-                  </dl>
+                {showHomeStatus && <div className="home-status"><StatusLog entries={status} /></div>}
+                <section className="home-section news-section">
+                  <div className="home-section-heading"><span className="eyebrow">News</span><h2>From Flint</h2></div>
+                  <article className="news-item"><span>Flint 0.3</span><strong>A stronger launcher foundation</strong><p>Automatic Java setup, isolated Fabric profiles, safe imports, and local-first launcher integrations.</p></article>
+                  <article className="news-item"><span>Compatibility</span><strong>Flint Client preview</strong><p>Local cosmetics and AutoAuth are currently limited to supported Fabric 1.21.11 profiles.</p></article>
+                </section>
+                <section className="home-section quick-section">
+                  <div className="home-section-heading"><span className="eyebrow">Quick actions</span><h2>Jump back in</h2></div>
+                  <div className="quick-actions">
+                    <button onClick={() => selectView("mods")}><span>Mods</span><small>Manage this profile</small></button>
+                    <button onClick={() => selectView("profiles")}><span>Profiles</span><small>Switch or create</small></button>
+                    <button onClick={openImport} disabled={!selected}><span>Import setup</span><small>Bring in local files</small></button>
+                    <button onClick={() => selectView("settings")}><span>Settings</span><small>Runtime and launcher</small></button>
+                  </div>
                 </section>
               </div>
             </div>
