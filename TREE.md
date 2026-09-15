@@ -9,10 +9,11 @@ Flint/
 │   │   ├── ImportSetup.tsx      Read-only installation scan, preview, and selective import
 │   │   ├── CosmeticsManager.tsx Profile-local skin/cape preview and preferences
 │   │   ├── AutoAuthManager.tsx  Explicit per-server secure credential workflow
+│   │   ├── HeroMedia.tsx        Local video/static hero fallback and focus-aware playback
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
 │   ├── App.tsx                  Consumer navigation, settings, profiles, and launch state
-│   ├── artwork.ts               Data-driven release artwork selection and fallback
+│   ├── artwork.ts               Data-driven release image/video descriptors and fallback
 │   ├── cosmeticPreview.ts       Path-free PNG byte/blob preview adapter
 │   ├── assets/                  Optimized launcher logo/hero assets
 │   ├── types.ts                 Shared frontend payload shapes

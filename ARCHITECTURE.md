@@ -6,7 +6,7 @@ Flint is a Tauri desktop application. React owns presentation and user intent; R
 
 ## React frontend
 
-`src/App.tsx` loads profiles, settings, the Mojang catalog, and Java inventory; it coordinates profile editing, play state, navigation, and window behavior. `ProfileForm` resolves Fabric/preset compatibility before save, while `ModManager` provides the intentionally small Modrinth surface. `ImportSetup` and `CosmeticsManager` use typed IPC and the scoped Tauri dialog plugin; filesystem validation and copying remain in Rust. `artwork.ts` maps versions to bundled/licensed artwork with a Flint-owned fallback.
+`src/App.tsx` loads profiles, settings, the Mojang catalog, and Java inventory; it coordinates profile editing, play state, navigation, and window behavior. `ProfileForm` resolves Fabric/preset compatibility before save, while `ModManager` provides the intentionally small Modrinth surface. `ImportSetup` and `CosmeticsManager` use typed IPC and the scoped Tauri dialog plugin; filesystem validation and copying remain in Rust. `artwork.ts` maps versions to bundled artwork descriptors, while `HeroMedia` selects an optional local video or its required static fallback.
 
 The UI still performs immediate validation for good feedback, but Rust repeats all validation because webview input is never trusted across IPC.
 
@@ -66,7 +66,7 @@ Profiles are non-secret metadata stored in `profiles/profiles.json`; old Milesto
 
 The importer accepts only a recognizable external Minecraft directory, rejects Flint-managed sources, skips symlinks, bounds individual files, and constructs destinations from known categories. It never reads launcher credential databases. Worlds are off by default. Imported Fabric JARs are opened only as ZIP data and never executed. Flint evaluates common Fabric semantic predicates, loader/environment constraints, and required local dependencies into Compatible, Incompatible, or Needs Review. SHA-1-identifiable Modrinth files can instead be reinstalled through the existing dependency resolver. Modular Fabric API JARs are consolidated to avoid duplicate package imports.
 
-Cosmetics live under `instances/<id>/flint/cosmetics`. PNG headers, dimensions, and size are validated before copying. Preview bytes cross IPC by profile ID and become revocable `blob:` URLs; raw Windows paths never enter image sources. For an enabled compatible client, launcher preparation copies only the fixed managed skin/cape files into the game directory and emits protocol-v1 relative paths. The mixin applies them only to the current local player.
+Cosmetics live under `instances/<id>/flint/cosmetics`. PNG headers, dimensions, and size are validated before copying. Preview bytes cross IPC by profile ID and become revocable `blob:` URLs; raw Windows paths never enter image sources. For an enabled compatible client, launcher preparation copies only the fixed managed skin/cape files into the game directory and emits protocol-v1 relative paths. The local-player mixin registers each PNG as a dynamic `TextureManager` texture and supplies its direct render identifier; it never routes the ID through Minecraft's resource-pack path constructor.
 
 ## Fabric and Modrinth
 
@@ -84,7 +84,11 @@ Expected failures cross IPC as readable structured errors. Technical details are
 
 ## AutoAuth
 
-AutoAuth rules live outside profile JSON under the UUID instance and contain an opaque credential reference, exact server address, templates, and enable state. Secrets use Windows Credential Manager. On launch a random-token loopback bridge exists only for the Minecraft child lifetime; endpoint/token travel through its environment, never disk. Flint Client intercepts only explicit `/flintauth login` and `/flintauth register` local triggers, obtains the current server address, and requests one rendered command. Both sides enforce one attempt per connection/session. No server/plugin prompt heuristics are claimed.
+AutoAuth rules live outside profile JSON under the UUID instance and contain an opaque credential reference, exact server address, templates, and a Disabled/Login/Register mode. Legacy enabled rules deserialize as Login. Secrets use Windows Credential Manager. On launch a random-token loopback bridge exists only for the Minecraft child lifetime; endpoint/token travel through its environment, never disk. Each game-join event resets the client state; after 40 ready client ticks it sends the current server address to the bridge, which selects the configured mode and returns one rendered command. The client verifies that the original network handler is still current, and both sides enforce one attempt per connection/session. No server/plugin prompt heuristics are claimed.
+
+## Home artwork and motion
+
+Every hero descriptor has a bundled static image and may add a bundled WebM/MP4 later. `HeroMedia` uses muted, looping, metadata-preloaded video only when configured, falls back on playback/load failure, renders the image for reduced-motion users, and pauses video while the document is hidden or the launcher is unfocused. No media URL is remote and no tracking or autoplay audio is present.
 
 ## Future architecture (not implemented)
 

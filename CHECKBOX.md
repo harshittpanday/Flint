@@ -102,8 +102,8 @@
 ## AutoAuth
 
 - [x] Per-server opaque references and Windows Credential Manager adapter
-- [x] Token-authenticated per-launch loopback bridge and explicit Flint Client triggers
-- [x] Configurable login/register templates, enable/update/remove UI, and replay limits
+- [x] Token-authenticated per-launch loopback bridge and automatic readiness-delayed Flint Client trigger
+- [x] Disabled/Login/Register modes, configurable templates, update/remove UI, and replay limits
 - [x] Reset the AutoAuth state on same-server and different-server game joins
 - [ ] Interactive Credential Manager and owned offline-server end-to-end verification
 
@@ -123,6 +123,7 @@
 - [x] Usable profile, version, Play, runtime, and status interface
 - [x] Apply canonical Flint logo, warm design tokens, optimized hero artwork, and Cosmetics navigation
 - [x] Provide data-driven release artwork fallback
+- [x] Support optional bundled hero video with static/error/reduced-motion fallback and focus-aware pause
 - [x] Busy/disabled Play states and understandable failures
 - [x] Home/Profile/Mods/Settings navigation and obvious Play action
 - [x] Consumer launcher layout verified at standard and 780×620 browser viewports

@@ -6,7 +6,7 @@ Flint is a Windows-first desktop launcher for Minecraft: Java Edition. The proje
 
 ## Current status
 
-Flint v0.3.0 is a beta consumer Minecraft launcher. This milestone adds conservative cross-version importing, automatic Flint-managed Temurin runtimes, and an optional Fabric 1.21.11 Flint Client with local-only cosmetics and explicit server AutoAuth.
+Flint v0.3.0 is a beta consumer Minecraft launcher. The current post-v0.3 work adds conservative cross-version importing, automatic Flint-managed Temurin runtimes, and an optional Fabric 1.21.11 Flint Client with local-only cosmetics and automatic per-server AutoAuth.
 
 The project owner manually verified the earlier Minecraft 26.2 main-menu, cache-reuse, Fabric, Modrinth, Discord, and multiplayer baseline. v0.3 automated and packaging results are recorded in `HISTORY.md`; they do **not** substitute for a new in-game cosmetics, AutoAuth, vanilla, or Fabric main-menu observation.
 
@@ -33,8 +33,8 @@ Release profiles can select versions dynamically from Mojang's official catalog;
 - Preview and selectively import settings, servers, resources, shaders, configs, explicitly compatible Fabric mods, and opt-in worlds from an existing installation without modifying the source.
 - Validate and store local PNG skins/capes per profile with Classic/Slim and cape-enable preferences.
 - Optionally install the bundled Flint Client into an isolated Fabric 1.21.11 profile for local-only skin/cape rendering.
-- Store explicitly configured per-server AutoAuth passwords in Windows Credential Manager and deliver one user-triggered login/register command through a token-authenticated per-launch loopback bridge.
-- Navigate a polished Home, Profiles, Mods, and Settings interface with keyboard focus, loading, disabled, error, and destructive-confirmation states.
+- Store explicitly configured per-server AutoAuth passwords in Windows Credential Manager and deliver one configured login/register command after client readiness through a token-authenticated per-launch loopback bridge.
+- Navigate a polished Home, Profiles, Mods, and Settings interface with a data-driven image/optional-video hero, keyboard focus, loading, disabled, error, and destructive-confirmation states.
 - Build normal x64 MSI and NSIS Windows installers with Start Menu/uninstall integration supplied by Tauri.
 
 Offline profiles are not authenticated accounts. They cannot join online-mode servers and do not bypass server authentication.
@@ -106,7 +106,7 @@ Flint app data/
 - Required Modrinth dependencies are installed, but optional dependency recommendations, conflicts, and mod updates are not yet modeled in the UI.
 - Discord Rich Presence uses Flint's public Application ID `1547183366091051019`. The Discord Developer Portal must retain the registered `flint` image asset; RPC remains optional and failure-isolated when Discord is closed or unavailable.
 - Flint Client 0.3.0 is intentionally limited to Fabric on Minecraft 1.21.11. Its skins and capes are visible only to the local player and are not Mojang/Microsoft entitlements or server-visible cosmetics.
-- AutoAuth is only for offline-mode servers the user owns or is authorized to use. It requires Flint Client and an explicit in-game `/flintauth login` or `/flintauth register` trigger. Windows Credential Manager access still needs manual verification in an interactive logon session.
+- AutoAuth is only for offline-mode servers the user owns or is authorized to use. It requires Flint Client and an exact per-profile server rule set to Disabled, Login, or Register. On each game-join event the client waits briefly for readiness, requests one command, and then stops; Windows Credential Manager and owned-server behavior still need manual interactive verification.
 - Importer compatibility is conservative but range-aware: common Fabric predicates, loader requirements, environment, and required local dependencies are evaluated. Exact SHA-1 matches can be reinstalled through Modrinth's compatible-version resolver; unknown metadata remains review-only and incompatible mods remain skipped.
 - MSI and NSIS bundles are unsigned beta artifacts. A post-change vanilla and Fabric main-menu launch still requires manual confirmation.
 
