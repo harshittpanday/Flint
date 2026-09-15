@@ -9,6 +9,7 @@ import { AutoAuthManager } from "./components/AutoAuthManager";
 import { StatusLog } from "./components/StatusLog";
 import { HeroMedia } from "./components/HeroMedia";
 import { NewsFeed } from "./components/NewsFeed";
+import { NavigationIcon } from "./components/NavigationIcon";
 import { artworkForVersion } from "./artwork";
 import { HOME_NEWS } from "./news";
 import flintLogo from "./assets/flint-logo-256.png";
@@ -34,6 +35,17 @@ function formatPreset(profile: Profile): string {
 function formatLastPlayed(value?: string): string {
   if (!value) return "Never played";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function formatClientState(profile: Profile): string {
+  const labels: Record<Profile["flintClientState"], string> = {
+    notInstalled: "Not installed",
+    installed: "Installed",
+    updateAvailable: "Update ready",
+    enabled: "Enabled",
+    disabled: "Disabled",
+  };
+  return labels[profile.flintClientState];
 }
 
 export default function App() {
@@ -208,7 +220,7 @@ export default function App() {
         <nav className="primary-nav" aria-label="Main navigation">
           {(["home", "profiles", "mods", "cosmetics", "settings"] as View[]).map((item) => (
             <button key={item} className={view === item ? "active" : ""} onClick={() => selectView(item)} aria-current={view === item ? "page" : undefined}>
-              <span className="nav-dot" aria-hidden="true" />{item.charAt(0).toUpperCase() + item.slice(1)}
+              <NavigationIcon name={item} /><span>{item.charAt(0).toUpperCase() + item.slice(1)}</span>
             </button>
           ))}
         </nav>
@@ -220,38 +232,45 @@ export default function App() {
 
       <section className="app-content">
         <header className="topbar">
-          <div><span className="connection-dot" />Local mode</div>
+          <div className="topbar-context"><strong>{view.charAt(0).toUpperCase() + view.slice(1)}</strong><span><i className="connection-dot" />Local mode</span></div>
           <button className="player-chip" onClick={() => setView("profiles")} disabled={!selected}>
             <span className="player-avatar" aria-hidden="true">{selected?.username.charAt(0).toUpperCase() || "?"}</span>
-            <span><small>Playing as</small><strong>{selected?.username ?? "No profile"}</strong></span>
+            <span><strong>{selected?.username ?? "No profile"}</strong><small>Offline player</small></span>
           </button>
         </header>
 
-        <div className="view-content">
+        <div className={`view-content ${view === "home" ? "home-content" : ""}`}>
           {view === "home" && (
             <div className="home-view">
-              <div className="page-heading home-intro">
-                <h1>Welcome back{selected ? `, ${selected.username}` : ""}.</h1>
-              </div>
               {selected ? (
-                <section className="play-hero">
+                <section className="game-stage">
                   <HeroMedia artwork={artwork} />
-                  <label className="profile-switcher">Profile
-                    <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
+                  <label className="home-profile-control">
+                    <span className="profile-emblem" aria-hidden="true">{selected.loader === "fabric" ? "F" : "V"}</span>
+                    <span className="profile-control-copy"><small>Selected profile</small><strong>{selected.name}</strong><em>{selected.loader === "fabric" ? "Fabric profile" : "Vanilla profile"}</em></span>
+                    <select aria-label="Selected profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
                       {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                     </select>
+                    <span className="profile-chevron" aria-hidden="true">⌄</span>
                   </label>
-                  <div className="hero-content">
-                    <div className="hero-copy">
+                  <div className="launch-deck">
+                    <div className="launch-title">
+                      <span className="stage-overline">Ready to launch</span>
                       <span className="eyebrow">Minecraft Java Edition</span>
-                      <h2>Minecraft {selected.minecraftVersion}</h2>
-                      <p className="hero-metadata">{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}<span aria-hidden="true">•</span>{formatPreset(selected)} preset</p>
+                      <h1><span>Minecraft</span><strong>{selected.minecraftVersion}</strong></h1>
+                      <p>{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}<i />{formatPreset(selected)} preset</p>
                     </div>
                     <button className={`play-button ${currentPhase}`} disabled={busy} onClick={launch}>
                       <span className="play-icon" aria-hidden="true">▶</span>
-                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `as ${selected.username}`}</small></span>
+                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : "Launch Minecraft"}</small></span>
                     </button>
                   </div>
+                  <dl className="session-rail">
+                    <div><dt>Last played</dt><dd>{formatLastPlayed(selected.lastPlayedAt)}</dd></div>
+                    <div><dt>Memory</dt><dd>{selected.memoryMb} MB</dd></div>
+                    <div><dt>Java</dt><dd>{settings?.automaticJavaManagement ? "Managed" : settings?.automaticJava ? "Automatic" : "Manual"}</dd></div>
+                    <div><dt>Flint Client</dt><dd>{formatClientState(selected)}</dd></div>
+                  </dl>
                 </section>
               ) : (
                 <section className="empty-state">
@@ -265,12 +284,12 @@ export default function App() {
                 {showHomeStatus && <div className="home-status"><StatusLog entries={status} /></div>}
                 <NewsFeed items={HOME_NEWS} />
                 <section className="home-section quick-section">
-                  <div className="home-section-heading"><span className="eyebrow">Quick actions</span><h2>Jump back in</h2></div>
+                  <div className="home-section-heading"><span className="eyebrow">Launcher</span><h2>Quick access</h2></div>
                   <div className="quick-actions">
-                    <button onClick={() => selectView("mods")}><span>Mods</span><small>Manage this profile</small></button>
-                    <button onClick={() => selectView("profiles")}><span>Profiles</span><small>Switch or create</small></button>
-                    <button onClick={openImport} disabled={!selected}><span>Import setup</span><small>Bring in local files</small></button>
-                    <button onClick={() => selectView("settings")}><span>Settings</span><small>Runtime and launcher</small></button>
+                    <button onClick={() => selectView("mods")}><NavigationIcon name="mods" /><span><strong>Mods</strong><small>Manage this profile</small></span><b aria-hidden="true">→</b></button>
+                    <button onClick={() => selectView("profiles")}><NavigationIcon name="profiles" /><span><strong>Profiles</strong><small>Switch or create</small></span><b aria-hidden="true">→</b></button>
+                    <button onClick={openImport} disabled={!selected}><NavigationIcon name="home" /><span><strong>Import setup</strong><small>Bring in local files</small></span><b aria-hidden="true">→</b></button>
+                    <button onClick={() => selectView("settings")}><NavigationIcon name="settings" /><span><strong>Settings</strong><small>Runtime and launcher</small></span><b aria-hidden="true">→</b></button>
                   </div>
                 </section>
               </div>
