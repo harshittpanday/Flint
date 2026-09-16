@@ -67,6 +67,7 @@ export default function App() {
   const showHomeStatus = currentPhase !== "ready";
   const artwork = artworkForVersion(selected?.minecraftVersion);
   const recentProfiles = useMemo(() => [...profiles]
+    .filter((profile) => Boolean(profile.lastPlayedAt))
     .sort((left, right) => Date.parse(right.lastPlayedAt ?? "") - Date.parse(left.lastPlayedAt ?? ""))
     .slice(0, 3), [profiles]);
 
@@ -207,10 +208,10 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <aside className="sidebar">
+      <header className="launcher-navbar">
         <div className="brand-lockup">
           <img className="brand-mark" src={flintLogo} alt="" aria-hidden="true" />
-          <div><strong>Flint</strong><span>Launcher</span></div>
+          <div><strong>FLINT</strong><span>Launcher</span></div>
         </div>
         <nav className="primary-nav" aria-label="Main navigation">
           {(["home", "profiles", "mods", "cosmetics", "settings"] as View[]).map((item) => (
@@ -219,20 +220,16 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-footer">
-          <span>Flint 0.3.0</span>
-          <small><i className="connection-dot" />Local mode</small>
-        </div>
-      </aside>
-
-      <section className="app-content">
-        <header className="topbar">
-          <div className="topbar-context"><strong>{view.charAt(0).toUpperCase() + view.slice(1)}</strong><span><i className="connection-dot" />Local mode</span></div>
+        <div className="navbar-account">
+          <span className="local-indicator"><i className="connection-dot" />Local mode</span>
           <button className="player-chip" onClick={() => setView("profiles")} disabled={!selected}>
             <span className="player-avatar" aria-hidden="true">{selected?.username.charAt(0).toUpperCase() || "?"}</span>
             <span><strong>{selected?.username ?? "No profile"}</strong><small>Offline player</small></span>
           </button>
-        </header>
+        </div>
+      </header>
+
+      <section className="app-content">
 
         <div className={`view-content ${view === "home" ? "home-content" : ""}`}>
           {view === "home" && (
@@ -245,22 +242,24 @@ export default function App() {
                     <div className="player-profile">
                       <span className="hero-avatar" aria-hidden="true">{selected.username.charAt(0).toUpperCase()}</span>
                       <div className="hero-player-copy">
-                        <strong>{selected.username}</strong>
-                        <span>{selected.name}</span>
+                        <span>Playing as {selected.username}</span>
+                        <h1>{selected.name}</h1>
                         <small>Minecraft {selected.minecraftVersion}<i />{selected.loader === "fabric" ? `Fabric ${selected.fabricLoaderVersion ?? ""}` : "Vanilla"}</small>
                         <em>{formatPreset(selected)} preset</em>
                       </div>
+                    </div>
+                    <div className="launch-actions">
                       <label className="profile-change">
                         <span>Change profile</span><b aria-hidden="true">⌄</b>
                         <select aria-label="Change profile" value={selectedId} onChange={(event) => setSelectedId(event.target.value)} disabled={busy}>
                           {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
                         </select>
                       </label>
+                      <button className={`play-button ${currentPhase}`} disabled={busy} onClick={launch}>
+                        <span className="play-icon" aria-hidden="true">▶</span>
+                        <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `Minecraft ${selected.minecraftVersion}`}</small></span>
+                      </button>
                     </div>
-                    <button className={`play-button ${currentPhase}`} disabled={busy} onClick={launch}>
-                      <span className="play-icon" aria-hidden="true">▶</span>
-                      <span><strong>{playLabel}</strong><small>{busy ? status.at(-1)?.message : `Minecraft ${selected.minecraftVersion}`}</small></span>
-                    </button>
                   </div>
                 </section>
               ) : (
@@ -276,13 +275,13 @@ export default function App() {
                 <section className="launcher-pane recent-pane">
                   <div className="launcher-pane-heading"><span>Recent</span><small>Profiles</small></div>
                   <div className="recent-list">
-                    {recentProfiles.map((profile) => (
+                    {recentProfiles.length ? recentProfiles.map((profile) => (
                       <button key={profile.id} className={profile.id === selectedId ? "selected" : ""} onClick={() => setSelectedId(profile.id)}>
                         <span className="recent-icon" aria-hidden="true">{profile.loader === "fabric" ? "F" : "V"}</span>
                         <span><strong>{profile.name}</strong><small>Minecraft {profile.minecraftVersion} · {formatLastPlayed(profile.lastPlayedAt)}</small></span>
-                        <b aria-hidden="true">{profile.id === selectedId ? "Playing" : "Select"}</b>
+                        <b aria-hidden="true">{profile.id === selectedId ? "Selected" : "Select"}</b>
                       </button>
-                    ))}
+                    )) : <p className="recent-empty">No recent launches yet.</p>}
                   </div>
                 </section>
                 <section className="launcher-pane setup-pane">
@@ -295,7 +294,6 @@ export default function App() {
                 </section>
                 <article className="home-news-strip">
                   <span>{HOME_NEWS[0].category}</span><strong>{HOME_NEWS[0].title}</strong><p>{HOME_NEWS[0].summary}</p>
-                  <button onClick={() => selectView("settings")}>Launcher details <b aria-hidden="true">→</b></button>
                 </article>
               </div>}
             </div>
