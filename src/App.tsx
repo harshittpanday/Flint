@@ -11,6 +11,7 @@ import { HeroMedia } from "./components/HeroMedia";
 import { NavigationIcon } from "./components/NavigationIcon";
 import { artworkForVersion } from "./artwork";
 import { HOME_NEWS } from "./news";
+import { failedStatus } from "./errors";
 import flintLogo from "./assets/flint-logo-256.png";
 import type { FlintClientSupport, JavaInfo, LauncherSettings, LauncherStatus, MinecraftVersion, Profile, ProfileInput } from "./types";
 
@@ -18,13 +19,6 @@ type View = "home" | "profiles" | "mods" | "cosmetics" | "settings";
 
 const initialStatus: LauncherStatus = { phase: "ready", message: "Loading Flint…" };
 const busyPhases = new Set(["preparing", "downloading", "launching", "running"]);
-
-function readableError(error: unknown): string {
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  if (error && typeof error === "object" && "message" in error && typeof error.message === "string") return error.message;
-  return "Something went wrong. Try again, then check the launcher log if the problem continues.";
-}
 
 function formatPreset(profile: Profile): string {
   if (profile.loader === "vanilla") return "Vanilla";
@@ -85,7 +79,7 @@ export default function App() {
         setVersions(catalog);
         setStatus([{ phase: "ready", message: loadedProfiles.length ? "Ready to play." : "Create your first offline profile." }]);
       })
-      .catch((error) => setStatus([{ phase: "failed", message: readableError(error) }]));
+      .catch((error) => setStatus([failedStatus(error)]));
     api.listenStatus((entry) => {
       setStatus((items) => [...items, entry]);
       if (entry.phase === "finished" || entry.phase === "failed") {
@@ -94,7 +88,7 @@ export default function App() {
       }
     })
       .then((unlisten) => { if (active) cleanup = unlisten; else unlisten(); })
-      .catch((error) => setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]));
+      .catch((error) => setStatus((items) => [...items, failedStatus(error)]));
     return () => { active = false; cleanup?.(); };
   }, []);
 
@@ -129,7 +123,7 @@ export default function App() {
         setStatus((items) => [...items, { phase: "ready", message: "Preset mods installed." }]);
       }
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 
@@ -141,7 +135,7 @@ export default function App() {
       setSelectedId(copy.id);
       setStatus((items) => [...items, { phase: "ready", message: `Created isolated profile “${copy.name}”.` }]);
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 
@@ -154,7 +148,7 @@ export default function App() {
       setSelectedId(remaining[0]?.id ?? "");
       setStatus((items) => [...items, { phase: "ready", message: "Profile deleted." }]);
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 
@@ -166,7 +160,7 @@ export default function App() {
       setSettings(saved);
       setStatus((items) => [...items, { phase: "ready", message: "Launcher settings saved." }]);
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 
@@ -178,7 +172,7 @@ export default function App() {
       if (settings?.behaviorWhileRunning === "minimize") await getCurrentWindow().minimize();
       if (settings?.behaviorWhileRunning === "hide") await getCurrentWindow().hide();
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 
@@ -190,7 +184,7 @@ export default function App() {
       setClientSupport(await api.getFlintClientSupport(selected.id));
       setStatus((items) => [...items, { phase: "ready", message: `Flint Client ${enabled ? "enabled" : "disabled"} for ${selected.name}.` }]);
     } catch (error) {
-      setStatus((items) => [...items, { phase: "failed", message: readableError(error) }]);
+      setStatus((items) => [...items, failedStatus(error)]);
     }
   }
 

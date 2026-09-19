@@ -96,7 +96,15 @@ pub async fn apply(
             library.sha1
         };
         let target = paths.libraries.join(&relative);
-        download::ensure(&client, &url, &sha1, library.size, &target).await?;
+        download::ensure(
+            &client,
+            &format!("Fabric library {}", library.name),
+            &url,
+            &sha1,
+            library.size,
+            &target,
+        )
+        .await?;
         prepared.classpath.push(target);
     }
     prepared.metadata.id = profile.id;
@@ -116,7 +124,7 @@ pub async fn apply(
 }
 
 fn client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
+    download::client_builder()
         .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(Into::into)

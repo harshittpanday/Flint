@@ -59,7 +59,7 @@ pub fn emit(
 }
 
 pub async fn resolve(paths: &AppPaths, version: &str) -> Result<ResolvedVersion> {
-    let client = reqwest::Client::builder()
+    let client = download::client_builder()
         .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
         .build()?;
     let manifest = super::catalog::load_manifest(paths).await?;
@@ -75,7 +75,15 @@ pub async fn resolve(paths: &AppPaths, version: &str) -> Result<ResolvedVersion>
         })?;
     let version_dir = paths.versions.join(version);
     let metadata_path = version_dir.join(format!("{version}.json"));
-    download::ensure(&client, &reference.url, &reference.sha1, 0, &metadata_path).await?;
+    download::ensure(
+        &client,
+        &format!("Minecraft {version} version metadata"),
+        &reference.url,
+        &reference.sha1,
+        0,
+        &metadata_path,
+    )
+    .await?;
     let metadata: VersionMetadata =
         serde_json::from_slice(&tokio::fs::read(&metadata_path).await?)?;
     if metadata.id != version {
@@ -105,7 +113,7 @@ pub async fn prepare(
     paths: &AppPaths,
     resolved: ResolvedVersion,
 ) -> Result<PreparedVersion> {
-    let client = reqwest::Client::builder()
+    let client = download::client_builder()
         .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
         .build()?;
     let metadata = resolved.metadata;
@@ -121,6 +129,7 @@ pub async fn prepare(
     );
     download::ensure(
         &client,
+        &format!("Minecraft {version} client JAR"),
         &metadata.downloads.client.url,
         &metadata.downloads.client.sha1,
         metadata.downloads.client.size,
@@ -163,6 +172,7 @@ pub async fn prepare(
             let target = paths.libraries.join(relative);
             download::ensure(
                 &client,
+                &format!("library {}", library.name),
                 &artifact.url,
                 &artifact.sha1,
                 artifact.size,
@@ -211,7 +221,15 @@ pub async fn prepare(
                 )
             })?;
             let target = paths.libraries.join(relative);
-            download::ensure(&client, &native.url, &native.sha1, native.size, &target).await?;
+            download::ensure(
+                &client,
+                &format!("native library {} ({classifier})", library.name),
+                &native.url,
+                &native.sha1,
+                native.size,
+                &target,
+            )
+            .await?;
             extract_native(&target, &natives_dir, library.extract.as_ref())?;
         }
     }
@@ -222,6 +240,7 @@ pub async fn prepare(
         .join(format!("{}.json", metadata.asset_index.id));
     download::ensure(
         &client,
+        &format!("asset index {}", metadata.asset_index.id),
         &metadata.asset_index.url,
         &metadata.asset_index.sha1,
         metadata.asset_index.size,
@@ -238,6 +257,7 @@ pub async fn prepare(
             .join(&logging.client.file.id);
         download::ensure(
             &client,
+            &format!("logging configuration {}", logging.client.file.id),
             &logging.client.file.url,
             &logging.client.file.sha1,
             logging.client.file.size,
@@ -276,6 +296,7 @@ async fn prepare_assets(
         async move {
             download::ensure(
                 &client,
+                &format!("asset {hash}"),
                 &format!("https://resources.download.minecraft.net/{prefix}/{}", hash),
                 &hash,
                 asset.size,

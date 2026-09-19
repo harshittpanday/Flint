@@ -7,6 +7,7 @@ coverage/
 # Rust / Tauri output
 target/
 src-tauri/target/
+src-tauri/target-*/
 src-tauri/gen/
 src-tauri/.tauri/
 

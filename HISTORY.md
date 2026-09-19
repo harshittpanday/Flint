@@ -1,5 +1,13 @@
 # Flint development history
 
+## 2026-09-19 — External-tester download hardening
+
+- Investigated the external Minecraft 1.21.11 failure path. No failing tester log or artifact was present, so the exact remote-machine cause could not be proven; the developer cache could bypass fresh-download defects that a clean tester installation exercises.
+- Replaced whole-response writes and a shared temporary filename with streamed SHA-1/size validation, unique sibling temporary files, durable flushes, and atomic Windows replacement. Invalid cached files are replaced, valid files are reused, failed temporary files are cleaned, and simultaneous requests for one destination are serialized.
+- Limited retries to transient HTTP/network/filesystem conditions with bounded backoff, added connection/operation timeouts, stopped retrying permanent HTTP failures, and made malformed fresh Mojang manifest caches refresh instead of being trusted.
+- Download errors now identify the artifact in the primary message. Safe log/UI detail includes the query-free URL, HTTP status, destination, checksum/size discrepancy, attempt count, and underlying network/filesystem operation; the frontend no longer discards structured technical detail.
+- Added deterministic local-server regression coverage for clean/cache/corruption/interruption/checksum/HTTP/retry/concurrency/path/promotion behavior. Frontend tests passed 12/12, production build and lint passed, Rust format/check passed, and Rust tests passed 72/72 runnable with one pre-existing interactive Credential Manager test ignored. The optimized executable and x64 NSIS installer rebuilt from a clean isolated target; MSI bundling still fails at WiX `light.exe` on this host. An external clean-machine launch remains required to identify or close the original report.
+
 ## 2026-09-15 — Post-v0.3 client integration and Home milestone
 
 - Repaired the AutoAuth workflow end to end in code. The previous client waited for a manually typed `/flintauth` pseudo-command, so ordinary gameplay could never trigger authentication automatically. Rules now expose Disabled/Login/Register modes, legacy enabled entries migrate to Login, every game-join resets state, and a 40-tick client-readiness gate makes exactly one privacy-safe bridge request. The bridge selects the stored mode, normalizes default-port server matching, blocks replay, fails closed on missing credentials, and never logs secrets, server addresses, or rendered commands.

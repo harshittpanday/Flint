@@ -907,6 +907,7 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "uuid 1.26.0",
+ "windows-sys 0.61.2",
  "zeroize",
  "zip",
 ]

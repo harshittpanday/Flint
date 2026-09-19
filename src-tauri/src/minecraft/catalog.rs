@@ -37,25 +37,70 @@ fn is_visible(version_type: &str, include_snapshots: bool) -> bool {
 pub async fn load_manifest(paths: &AppPaths) -> Result<VersionManifest> {
     let path = paths.metadata.join("version_manifest_v2.json");
     if cache_is_fresh(&path) {
-        return serde_json::from_slice(&tokio::fs::read(&path).await?).map_err(Into::into);
+        match read_manifest(&path).await {
+            Ok(manifest) => return Ok(manifest),
+            Err(error) => tracing::warn!(
+                code = error.code,
+                detail = ?error.detail,
+                target = %path.display(),
+                "fresh Mojang version manifest cache is invalid; refreshing it"
+            ),
+        }
     }
-    let client = reqwest::Client::builder()
+    let client = super::download::client_builder()
         .user_agent(concat!("Flint/", env!("CARGO_PKG_VERSION")))
         .build()?;
-    match client.get(VERSION_MANIFEST_URL).send().await {
-        Ok(response) => {
-            let bytes = response.error_for_status()?.bytes().await?;
-            let manifest: VersionManifest = serde_json::from_slice(&bytes)?;
-            tokio::fs::create_dir_all(&paths.metadata).await?;
-            tokio::fs::write(&path, &bytes).await?;
-            Ok(manifest)
-        }
-        Err(error) if path.exists() => {
-            tracing::warn!(%error, "using stale Mojang version manifest cache");
-            serde_json::from_slice(&tokio::fs::read(path).await?).map_err(Into::into)
-        }
-        Err(error) => Err(AppError::from(error)),
+    let fetched = async {
+        let response = client
+            .get(VERSION_MANIFEST_URL)
+            .send()
+            .await?
+            .error_for_status()?;
+        let bytes = response.bytes().await?;
+        let manifest: VersionManifest = serde_json::from_slice(&bytes)?;
+        super::download::store_verified_bytes(
+            "Mojang version manifest",
+            VERSION_MANIFEST_URL,
+            &path,
+            &bytes,
+        )
+        .await?;
+        Ok::<VersionManifest, AppError>(manifest)
     }
+    .await;
+    match fetched {
+        Ok(manifest) => Ok(manifest),
+        Err(network_error) if path.exists() => match read_manifest(&path).await {
+            Ok(manifest) => {
+                tracing::warn!(
+                    code = network_error.code,
+                    detail = ?network_error.detail,
+                    "using validated stale Mojang version manifest cache"
+                );
+                Ok(manifest)
+            }
+            Err(cache_error) => Err(AppError::new(
+                "version_manifest_unavailable",
+                "Flint could not download or read Mojang's version manifest.",
+            )
+            .with_detail(format!(
+                "download error: {}; cache error: {}",
+                network_error
+                    .detail
+                    .as_deref()
+                    .unwrap_or(&network_error.message),
+                cache_error
+                    .detail
+                    .as_deref()
+                    .unwrap_or(&cache_error.message)
+            ))),
+        },
+        Err(error) => Err(error),
+    }
+}
+
+async fn read_manifest(path: &std::path::Path) -> Result<VersionManifest> {
+    serde_json::from_slice(&tokio::fs::read(path).await?).map_err(Into::into)
 }
 
 fn cache_is_fresh(path: &std::path::Path) -> bool {
@@ -84,5 +129,17 @@ mod tests {
         assert!(is_visible("snapshot", true));
         assert!(!is_visible("snapshot", false));
         assert!(!is_visible("old_alpha", true));
+    }
+
+    #[tokio::test]
+    async fn malformed_fresh_cache_is_not_trusted() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("manifest.json");
+        std::fs::write(&path, b"truncated").unwrap();
+        assert!(cache_is_fresh(&path));
+        assert_eq!(
+            read_manifest(&path).await.unwrap_err().code,
+            "invalid_metadata"
+        );
     }
 }

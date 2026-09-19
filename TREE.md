@@ -13,6 +13,7 @@ Flint/
 │   │   └── StatusLog.tsx        Compact launcher progress/error history
 │   ├── api.ts                   Typed Tauri IPC/event client
 │   ├── App.tsx                  Consumer navigation, settings, profiles, and launch state
+│   ├── errors.ts                Structured IPC error presentation and detail preservation
 │   ├── artwork.ts               Data-driven release image/video descriptors and fallback
 │   ├── cosmeticPreview.ts       Path-free PNG byte/blob preview adapter
 │   ├── assets/                  Optimized launcher logo/hero assets
@@ -26,7 +27,7 @@ Flint/
 │   │   ├── minecraft/
 │   │   │   ├── metadata.rs      Mojang JSON models and OS/feature rule evaluation
 │   │   │   ├── catalog.rs       Cached dynamic Mojang version catalog
-│   │   │   ├── download.rs      Verified, atomic-ish cached downloads
+│   │   │   ├── download.rs      Streamed verification, retry, locking, and atomic cache promotion
 │   │   │   ├── fabric.rs        Fabric Meta discovery and launch-plan overlay
 │   │   │   ├── modrinth.rs      Compatible per-profile mods and presets
 │   │   │   ├── install.rs       Vanilla preparation and native extraction pipeline

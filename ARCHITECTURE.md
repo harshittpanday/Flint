@@ -31,11 +31,11 @@ The current Tauri capability grants only core main-window behavior. Filesystem a
 - `autoauth`: per-server non-secret rules, Windows Credential Manager references, and the ephemeral loopback command bridge.
 - `presence`: optional, failure-isolated Discord IPC activity adapter.
 - `process_command`: common child-command construction and Windows release console policy.
-- `minecraft::catalog`: cached Mojang version catalog with stale fallback.
+- `minecraft::catalog`: validated cached Mojang version catalog with stale fallback.
 - `minecraft::fabric`: compatible loader discovery and launch-plan overlay.
 - `minecraft::modrinth`: compatibility-filtered per-profile mod lifecycle and presets.
 - `minecraft::metadata`: Mojang models and rule evaluation.
-- `minecraft::download`: integrity-checked cached files.
+- `minecraft::download`: streamed, integrity-checked, atomically promoted cached files.
 - `minecraft::install`: preparation orchestration and native extraction.
 - `minecraft::arguments`: modern JVM/game argument expansion.
 - `minecraft::process`: child lifecycle and exit reporting.
@@ -46,9 +46,9 @@ This separation allows a future CLI/test harness to use launcher modules without
 
 Flint begins at Mojang's `version_manifest_v2.json`, caches it for one hour, filters releases/snapshots for the UI, verifies the selected version JSON, and deserializes arguments, downloads, libraries, rules, assets, Java, natives, and logging metadata. Version 26.2 is the default rather than a hard restriction.
 
-Library and conditional argument rules are evaluated for Windows and no optional launcher features. Downloads are written only after size and SHA-1 checks pass. Existing files are reused only when those checks still succeed. Assets are prepared with a bounded concurrency of 12 to avoid thousands of serial transfers or unbounded resource use. Shared immutable data lives under `minecraft`; version-specific natives live beside the version.
+Library and conditional argument rules are evaluated for Windows and no optional launcher features. Downloads stream into unique sibling temporary files while computing SHA-1 and byte counts, flush to disk, and are promoted only after validation. Windows uses replace-existing/write-through move semantics; failed attempts clean temporary files without making partial data look final. Existing files are reused only when size and SHA-1 still match, and concurrent requests for one destination share a process-local lock. Assets retain bounded concurrency of 12 across different destinations. Shared immutable data lives under `minecraft`; version-specific natives live beside the version.
 
-The downloader currently buffers each individual response before committing it. That simplifies integrity and partial-file behavior for Milestone 1 but should evolve into streamed hashing and resumable transfers.
+HTTP 408/425/429 and 5xx responses plus transient transport/locking failures receive at most three attempts with backoff; permanent HTTP failures stop immediately. Clients have connect and total-operation timeouts. The catalog validates cached JSON before fresh or stale reuse and atomically replaces refreshed metadata. Resumable range transfers are not implemented.
 
 ## Java and process launch
 
@@ -76,7 +76,7 @@ Modrinth search and version queries are filtered by the profile's exact Minecraf
 
 ## Error propagation and logging
 
-Expected failures cross IPC as readable structured errors. Technical details are sent in the error object and written to logs, while the status panel leads with an actionable message. Logs cover path setup, downloads, Java selection, process start, launch failure, and process exit. Discord activity uses the public Flint Application ID `1547183366091051019`, initializes when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
+Expected failures cross IPC as readable structured errors. The frontend preserves optional technical detail behind the status panel disclosure while leading with an actionable message. Download messages name the artifact; logs include the query-free URL, HTTP status, destination, integrity result, attempt, and underlying I/O/network error. Query strings and URL credentials are removed before logging, and account/AutoAuth secrets never enter downloader metadata. Logs also cover path setup, Java selection, process start, launch failure, and process exit. Discord activity uses the public Flint Application ID `1547183366091051019`, initializes when Flint starts, follows browsing/preparing/downloading/launching/playing states, and makes at most one failed connection attempt per enabled session. Tokens/passwords do not exist in this milestone and future sensitive values must be redacted before logging.
 
 ## Optional Flint Client
 

@@ -338,7 +338,15 @@ async fn install_version(paths: &AppPaths, profile: &Profile, version: ModVersio
         .instance_game(&profile.id)
         .join("mods")
         .join(&file.filename);
-    download::ensure(&client()?, &file.url, &file.hashes.sha1, file.size, &target).await?;
+    download::ensure(
+        &client()?,
+        &format!("Modrinth mod {} ({})", version.name, file.filename),
+        &file.url,
+        &file.hashes.sha1,
+        file.size,
+        &target,
+    )
+    .await?;
     let mut installed = list_installed(paths, &profile.id)?;
     if let Some(previous) = installed
         .iter()
@@ -411,7 +419,7 @@ fn write_manifest(paths: &AppPaths, profile_id: &str, installed: &[InstalledMod]
 }
 
 fn client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
+    download::client_builder()
         .user_agent(concat!(
             "Flint/",
             env!("CARGO_PKG_VERSION"),

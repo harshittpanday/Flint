@@ -20,11 +20,11 @@ Release profiles can select versions dynamically from Mojang's official catalog;
 - Detect installed 64-bit Java runtimes or securely download, checksum, install, and reuse an isolated Temurin runtime matching Mojang's declared major.
 - Deduplicate Java aliases that resolve to the same runtime installation.
 - Read Mojang's official version manifest and selected version metadata.
-- Download the client, libraries, Windows natives, asset index, assets, and logging configuration.
-- Verify cached/downloaded files using the Mojang-provided SHA-1 and size where supplied.
+- Download the client, libraries, Windows natives, asset index, assets, and logging configuration through streamed, bounded transfers.
+- Verify cached/downloaded files using Mojang-provided SHA-1 and size data, replace invalid cache entries through unique temporary files, and atomically promote validated results.
 - Build modern rule-aware JVM/game arguments and start Minecraft as a child process.
 - Suppress visible console windows for launcher-owned helper and Java processes in Windows release builds while retaining captured logs.
-- Prevent concurrent preparation/running launches and report progress/errors to the UI.
+- Prevent concurrent preparation/running launches and concurrent writes to one artifact; report actionable artifact errors with safe technical detail to the UI and logs.
 - Write Flint and Minecraft output logs outside the repository.
 - Select Vanilla or a compatible Fabric Loader release per profile.
 - Preview and apply compatible Performance or Visuals presets from live Modrinth metadata.

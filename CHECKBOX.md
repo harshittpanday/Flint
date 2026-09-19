@@ -25,6 +25,11 @@
 - [x] Implement bounded asset download concurrency
 - [x] Verify clean first-run installation and second-run cache reuse for Minecraft 26.2 (project-owner verification)
 - [x] Add bounded download retry policy
+- [x] Retry only transient download failures and report permanent HTTP failures immediately
+- [x] Stream downloads through unique temporary files and atomically promote verified artifacts
+- [x] Serialize concurrent writes to the same artifact destination
+- [x] Refresh malformed fresh Mojang manifest caches and validate stale fallback data
+- [x] Add clean-cache, corrupt-cache, interruption, checksum, HTTP, retry, concurrency, promotion, and Unicode-path regression tests
 - [ ] Add resumable downloads
 
 ## Java Runtime
