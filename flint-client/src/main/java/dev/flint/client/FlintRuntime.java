@@ -42,6 +42,7 @@ public final class FlintRuntime {
     private static int autoGgDelay = -1;
     private static boolean autoGgSent;
     private static long lastAutoGgAt;
+    private static float soundLevel;
 
     private FlintRuntime() {}
 
@@ -82,6 +83,7 @@ public final class FlintRuntime {
         updateToggleSprint(client);
         updateParticles(client, dx, dz);
         updateAutoGg(client);
+        soundLevel *= 0.86f;
         pruneClicks(System.currentTimeMillis());
         if (client.player.hurtTime > 0 || System.currentTimeMillis() - lastComboAt > 3000) combo = 0;
     }
@@ -195,6 +197,10 @@ public final class FlintRuntime {
         pruneClicks(now);
     }
 
+    public static void recordSound(float volume) {
+        if (enabled("audio_visualizer")) soundLevel = Math.max(soundLevel, Math.min(1.0f, volume));
+    }
+
     public static void recordAttack(MinecraftClient client, boolean successful) {
         if (successful && client.crosshairTarget instanceof EntityHitResult) {
             combo++;
@@ -238,6 +244,19 @@ public final class FlintRuntime {
                 if (value != null) renderHudItem(context, client, module.id(), value, index, false);
             }
             index++;
+        }
+        renderAudioVisualizer(context);
+    }
+
+    private static void renderAudioVisualizer(DrawContext context) {
+        if (!enabled("audio_visualizer") || soundLevel < 0.02f) return;
+        int center = context.getScaledWindowWidth() / 2;
+        int bottom = context.getScaledWindowHeight() - 12;
+        for (int index = -4; index <= 4; index++) {
+            float shape = 1.0f - Math.abs(index) * 0.12f;
+            int height = Math.max(2, Math.round(soundLevel * shape * 28));
+            int x = center + index * 5;
+            context.fill(x, bottom - height, x + 3, bottom, AMBER);
         }
     }
 

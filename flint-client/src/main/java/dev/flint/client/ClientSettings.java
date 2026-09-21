@@ -123,6 +123,7 @@ public final class ClientSettings {
         values.put("custom_hand", false);
         values.put("projectile_trails", false);
         values.put("player_particles", false);
+        values.put("audio_visualizer", false);
         values.put("toggle_sprint", false);
         values.put("auto_gg", false);
         return values;

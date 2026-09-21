@@ -124,7 +124,7 @@
 - [x] Replace lime in-game accents with Flint orange/amber
 - [x] Add isolated settings/corruption-fallback tests and rebuild the embedded remapped artifact
 - [ ] Manually observe the menu, key handling, HUD, Fullbright, skin, cape, and AutoAuth in Minecraft
-- [ ] Add optional audio visualization
+- [x] Add opt-in game-sound-driven local audio visualization
 
 ## Streamer Mode
 

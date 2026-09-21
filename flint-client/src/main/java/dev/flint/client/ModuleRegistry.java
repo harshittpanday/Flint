@@ -23,6 +23,7 @@ public final class ModuleRegistry {
             new ModuleDefinition("custom_hand", "Custom Hand", "Compact first-person hand position", ModuleDefinition.Category.RENDER),
             new ModuleDefinition("projectile_trails", "Projectile Trails", "Local amber projectile particles", ModuleDefinition.Category.RENDER),
             new ModuleDefinition("player_particles", "Player Particles", "Local movement particles", ModuleDefinition.Category.RENDER),
+            new ModuleDefinition("audio_visualizer", "Audio Visualizer", "Local bars driven by game sound events", ModuleDefinition.Category.RENDER),
             new ModuleDefinition("toggle_sprint", "Toggle Sprint", "Tap Sprint to latch while moving", ModuleDefinition.Category.PLAYER),
             new ModuleDefinition("auto_gg", "Auto GG", "One rate-limited GG after clear victory text", ModuleDefinition.Category.PLAYER)
     );
