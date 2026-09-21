@@ -110,7 +110,18 @@
 - [x] Token-authenticated per-launch loopback bridge and automatic readiness-delayed Flint Client trigger
 - [x] Disabled/Login/Register modes, configurable templates, update/remove UI, and replay limits
 - [x] Reset the AutoAuth state on same-server and different-server game joins
+- [x] Scope launcher-side replay protection to a validated connection session so same-process reconnects can authenticate once again
 - [ ] Interactive Credential Manager and owned offline-server end-to-end verification
+
+## Flint Client in-game UI
+
+- [x] Add a Right Shift non-pausing menu with HUD/Render/Player/Flint/Settings navigation
+- [x] Persist the configurable menu key and module state atomically per profile instance
+- [x] Warn instead of accepting a key already bound by Minecraft
+- [x] Add FPS, coordinates, ping, speed, memory, keystrokes, reach, armor, and Fullbright modules
+- [x] Add isolated settings/corruption-fallback tests and rebuild the embedded remapped artifact
+- [ ] Manually observe the menu, key handling, HUD, Fullbright, skin, cape, and AutoAuth in Minecraft
+- [ ] Add the remaining requested HUD, render, player, and editor modules
 
 ## Streamer Mode
 

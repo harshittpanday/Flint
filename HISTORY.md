@@ -1,5 +1,13 @@
 # Flint development history
 
+## 2026-09-21 — Flint Client foundation and AutoAuth reconnect correction
+
+- Added a non-pausing in-game Flint Client screen opened by Right Shift, with HUD/Render/Player/Flint/Settings navigation, an atomic per-instance settings file, a rebindable menu key, and vanilla-key conflict warnings. Added working FPS, coordinates, ping, speed, memory, keystrokes, reach, armor, and client-only Fullbright modules; the broader requested module catalog remains deferred and is not represented as complete.
+- Corrected AutoAuth replay scope. The launcher bridge previously remembered a rule for the lifetime of the Minecraft process, preventing a legitimate reconnect to the same server. Requests now carry a random validated connection UUID; repeats within that connection remain blocked while a later connection can make one new attempt. Safe lifecycle logging records dispatch/completion without commands, servers, usernames, or secrets.
+- Closed local cosmetic image streams deterministically and rebuilt the remapped Fabric artifact embedded by the launcher. Gradle clean build/check and focused launcher integration tests passed. No Minecraft window, in-game menu, AutoAuth server exchange, skin, or cape was visually observed in this remote pass.
+- Final automated verification passed: frontend production build, lint, and 12/12 tests; Rust formatting/check and 72/72 runnable tests with one interactive Credential Manager test ignored; and the Fabric Loom clean build including both client state/persistence checks. The embedded JAR SHA-256 matched the remapped Gradle output.
+- The repository still declares product/client version `0.3.0`. Because no authoritative next version was supplied, no installer or release artifact was produced under an invented v0.4 version.
+
 ## 2026-09-19 — External-tester download hardening
 
 - Investigated the external Minecraft 1.21.11 failure path. No failing tester log or artifact was present, so the exact remote-machine cause could not be proven; the developer cache could bypass fresh-download defects that a clean tester installation exercises.

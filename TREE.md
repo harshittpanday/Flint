@@ -51,6 +51,14 @@ Flint/
 │   └── tauri.conf.json          Window, build, bundle, and CSP configuration
 ├── branding/                    Canonical Flint logo source
 ├── flint-client/                Optional Fabric 1.21.11 client mod (Loom/Gradle)
+│   └── src/main/java/dev/flint/client/
+│       ├── FlintClient.java     Integration config and local cosmetics
+│       ├── AutoAuthClient.java  One-shot per-connection bridge client
+│       ├── ClientSettings.java  Atomic per-instance menu/module state
+│       ├── FlintClientScreen.java In-game category/module interface
+│       ├── ModuleRegistry.java  Stable module catalog
+│       ├── FlintRuntime.java    Tick, HUD, and module runtime coordinator
+│       └── mixin/               Join, keyboard, tick, HUD, and skin hooks
 ├── ARCHITECTURE.md              Current and future system design with rationale
 ├── CHECKBOX.md                  Evidence-based product roadmap
 ├── CONTRIBUTING.md              Development and quality rules
