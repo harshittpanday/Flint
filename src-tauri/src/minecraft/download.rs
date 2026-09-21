@@ -526,7 +526,7 @@ impl AttemptFailure {
 mod tests {
     use super::*;
     use std::{
-        io::{Read, Write},
+        io::{BufRead, BufReader, Write},
         net::{Shutdown, TcpListener},
         sync::{
             atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -555,8 +555,19 @@ mod tests {
                 while !stop_signal.load(Ordering::Relaxed) {
                     match listener.accept() {
                         Ok((mut stream, _)) => {
-                            let mut request = [0_u8; 2048];
-                            let _ = stream.read(&mut request);
+                            stream
+                                .set_read_timeout(Some(Duration::from_secs(2)))
+                                .unwrap();
+                            let mut request = BufReader::new(stream.try_clone().unwrap());
+                            let mut line = Vec::new();
+                            loop {
+                                line.clear();
+                                match request.read_until(b'\n', &mut line) {
+                                    Ok(0) | Err(_) => break,
+                                    Ok(_) if line == b"\r\n" || line == b"\n" => break,
+                                    Ok(_) => {}
+                                }
+                            }
                             let index = request_count.fetch_add(1, Ordering::SeqCst);
                             let (status, body, advertised) = responses
                                 .get(index)
