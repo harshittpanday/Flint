@@ -17,6 +17,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class FlintRuntime {
     public static final int AMBER = 0xFFFF9F1C;
@@ -43,6 +44,7 @@ public final class FlintRuntime {
     private static boolean autoGgSent;
     private static long lastAutoGgAt;
     private static float soundLevel;
+    private static final AtomicBoolean MENU_TOGGLE_REQUESTED = new AtomicBoolean();
 
     private FlintRuntime() {}
 
@@ -70,6 +72,7 @@ public final class FlintRuntime {
 
     public static void tick(MinecraftClient client) {
         runtimeTicks++;
+        if (MENU_TOGGLE_REQUESTED.compareAndSet(true, false)) toggleMenu(client);
         if (client.player == null || client.world == null) return;
         double dx = client.player.getX() - previousX;
         double dz = client.player.getZ() - previousZ;
@@ -226,6 +229,10 @@ public final class FlintRuntime {
             client.setScreen(null);
         }
         else if (client.currentScreen == null) client.setScreen(new FlintClientScreen());
+    }
+
+    public static void requestMenuToggle() {
+        MENU_TOGGLE_REQUESTED.set(true);
     }
 
     public static List<ModuleDefinition> hudModules() {

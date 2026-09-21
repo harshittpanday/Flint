@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.Reader;
 import java.io.Writer;
@@ -22,7 +23,7 @@ public final class ClientSettings {
     private static final Path RELATIVE_PATH = Path.of("flint", "client-settings-v1.json");
 
     int schemaVersion = SCHEMA_VERSION;
-    public int menuKey = 344;
+    public int menuKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
     public boolean reducedMotion;
     public Map<String, Boolean> modules = defaults();
     public Map<String, HudPosition> hudPositions = new LinkedHashMap<>();
@@ -71,7 +72,9 @@ public final class ClientSettings {
             if (loaded.modules == null) loaded.modules = defaults();
             if (loaded.hudPositions == null) loaded.hudPositions = new LinkedHashMap<>();
             defaults().forEach(loaded.modules::putIfAbsent);
-            if (loaded.menuKey < 32 || loaded.menuKey > 348) loaded.menuKey = 344;
+            if (loaded.menuKey < GLFW.GLFW_KEY_SPACE || loaded.menuKey > GLFW.GLFW_KEY_MENU) {
+                loaded.menuKey = GLFW.GLFW_KEY_RIGHT_SHIFT;
+            }
             return loaded;
         } catch (Exception error) {
             LOGGER.warn("Flint Client settings are unreadable; safe defaults loaded ({})",

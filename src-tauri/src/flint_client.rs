@@ -254,6 +254,22 @@ mod tests {
     }
 
     #[test]
+    fn prepare_replaces_a_stale_embedded_client_copy() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(temp.path());
+        paths.ensure().unwrap();
+        let profile = profile(&paths, SUPPORTED_MINECRAFT_VERSION, Loader::Fabric);
+        let enabled = set_enabled(&paths, &profile.id, true).unwrap();
+        let installed = paths
+            .instance_game(&profile.id)
+            .join("mods")
+            .join(CLIENT_JAR_NAME);
+        fs::write(&installed, b"stale Flint Client").unwrap();
+        prepare(&paths, &enabled).unwrap();
+        assert_eq!(fs::read(installed).unwrap(), CLIENT_JAR);
+    }
+
+    #[test]
     fn embedded_artifact_is_a_remapped_fabric_mod() {
         let reader = std::io::Cursor::new(CLIENT_JAR);
         let mut archive = zip::ZipArchive::new(reader).unwrap();

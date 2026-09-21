@@ -9,8 +9,11 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class FlintClientScreen extends Screen {
+    private static final Logger LOGGER = LoggerFactory.getLogger("Flint Client");
     private static final int AMBER = FlintRuntime.AMBER;
     private static final int TEXT = 0xFFF3F6EF;
     private ModuleDefinition.Category category = ModuleDefinition.Category.HUD;
@@ -20,6 +23,12 @@ public final class FlintClientScreen extends Screen {
 
     public FlintClientScreen() {
         super(Text.literal("Flint Client"));
+    }
+
+    @Override
+    public void onDisplayed() {
+        LOGGER.info("Flint Client screen initialized");
+        super.onDisplayed();
     }
 
     @Override
