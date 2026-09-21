@@ -56,9 +56,10 @@ Flint/
 │       ├── AutoAuthClient.java  One-shot per-connection bridge client
 │       ├── ClientSettings.java  Atomic per-instance menu/module state
 │       ├── FlintClientScreen.java In-game category/module interface
+│       ├── HudEditorScreen.java Draggable normalized HUD layout editor
 │       ├── ModuleRegistry.java  Stable module catalog
 │       ├── FlintRuntime.java    Tick, HUD, and module runtime coordinator
-│       └── mixin/               Join, keyboard, tick, HUD, and skin hooks
+│       └── mixin/               Join, input, camera, item, HUD, tick, and skin hooks
 ├── ARCHITECTURE.md              Current and future system design with rationale
 ├── CHECKBOX.md                  Evidence-based product roadmap
 ├── CONTRIBUTING.md              Development and quality rules

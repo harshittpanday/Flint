@@ -119,9 +119,12 @@
 - [x] Persist the configurable menu key and module state atomically per profile instance
 - [x] Warn instead of accepting a key already bound by Minecraft
 - [x] Add FPS, coordinates, ping, speed, memory, keystrokes, reach, armor, and Fullbright modules
+- [x] Add effects, CPS, combo, draggable Edit HUD positioning, and scrollable module categories
+- [x] Add opt-in Zoom, Freelook, local time/weather, Custom Hand, bounded trails/particles, Toggle Sprint, and rate-limited Auto GG
+- [x] Replace lime in-game accents with Flint orange/amber
 - [x] Add isolated settings/corruption-fallback tests and rebuild the embedded remapped artifact
 - [ ] Manually observe the menu, key handling, HUD, Fullbright, skin, cape, and AutoAuth in Minecraft
-- [ ] Add the remaining requested HUD, render, player, and editor modules
+- [ ] Add optional audio visualization
 
 ## Streamer Mode
 

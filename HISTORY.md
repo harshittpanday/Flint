@@ -1,5 +1,12 @@
 # Flint development history
 
+## 2026-09-21 — Deferred Flint Client module implementation
+
+- Added draggable, normalized, per-instance HUD positioning through Edit HUD plus CPS, combo, and active-effects HUD modules. Reworked the in-game interface and HUD accents from lime to Flint orange/amber and added scrolling for larger module categories.
+- Added opt-in Zoom (hold C), Freelook (hold Left Alt without rotating the player), local-only fixed daytime/clear-weather views, compact first-person hand transforms, bounded local projectile trails/player particles, Toggle Sprint, and conservative Auto GG. Auto GG recognizes only three exact victory messages, waits one second, sends once per connection, and enforces a ten-second process-level rate limit.
+- Rebuilt the remapped Fabric client and replaced the launcher-embedded JAR. Gradle clean build/check and the three focused launcher integration tests passed; built and embedded SHA-256 values matched. No Minecraft or module behavior was manually observed in this pass.
+- Final native verification passed Rust formatting/check and 72/72 runnable tests with one interactive Credential Manager test ignored. The former handwritten HTTP fixture was replaced with a test-only HTTP server after repeated runs exposed intermittent Windows connection resets; its ten download tests then passed in three consecutive focused runs.
+
 ## 2026-09-21 — Flint Client foundation and AutoAuth reconnect correction
 
 - Added a non-pausing in-game Flint Client screen opened by Right Shift, with HUD/Render/Player/Flint/Settings navigation, an atomic per-instance settings file, a rebindable menu key, and vanilla-key conflict warnings. Added working FPS, coordinates, ping, speed, memory, keystrokes, reach, armor, and client-only Fullbright modules; the broader requested module catalog remains deferred and is not represented as complete.
