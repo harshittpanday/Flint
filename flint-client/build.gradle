@@ -41,8 +41,14 @@ tasks.register('testAutoAuthStateMachine', JavaExec) {
     mainClass = 'dev.flint.client.AutoAuthStateMachineTest'
 }
 
+tasks.register('testClientSettings', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.flint.client.ClientSettingsTest'
+}
+
 tasks.named('test') {
     failOnNoDiscoveredTests = false
 }
 
-check.dependsOn testAutoAuthStateMachine
+check.dependsOn testAutoAuthStateMachine, testClientSettings

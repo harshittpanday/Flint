@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,6 +39,7 @@ public final class FlintClient implements ClientModInitializer {
             return;
         }
         LOGGER.info("Flint Client protocol {} initialized", PROTOCOL_VERSION);
+        FlintRuntime.initialize();
     }
 
     public static SkinTextures overrideLocalSkin(AbstractClientPlayerEntity player, SkinTextures original) {
@@ -109,8 +111,8 @@ public final class FlintClient implements ClientModInitializer {
             LOGGER.debug("Flint local {} is enabled but its profile file is unavailable", kind);
             return null;
         }
-        try {
-            NativeImage image = NativeImage.read(Files.newInputStream(file));
+        try (InputStream input = Files.newInputStream(file)) {
+            NativeImage image = NativeImage.read(input);
             client.getTextureManager().registerTexture(
                     id,
                     new NativeImageBackedTexture(() -> "Flint local " + kind, image)
