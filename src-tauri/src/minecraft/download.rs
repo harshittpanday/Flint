@@ -526,8 +526,7 @@ impl AttemptFailure {
 mod tests {
     use super::*;
     use std::{
-        io::{BufRead, BufReader, Write},
-        net::{Shutdown, TcpListener},
+        io::Cursor,
         sync::{
             atomic::{AtomicBool, AtomicUsize, Ordering},
             Arc,
@@ -539,53 +538,39 @@ mod tests {
         url: String,
         requests: Arc<AtomicUsize>,
         stop: Arc<AtomicBool>,
+        server: Arc<tiny_http::Server>,
         thread: Option<thread::JoinHandle<()>>,
     }
 
     impl TestServer {
         fn new(responses: Vec<(u16, Vec<u8>, Option<usize>)>) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-            listener.set_nonblocking(true).unwrap();
-            let url = format!("http://{}/artifact", listener.local_addr().unwrap());
+            let server = Arc::new(tiny_http::Server::http("127.0.0.1:0").unwrap());
+            let url = format!("http://{}/artifact", server.server_addr());
             let requests = Arc::new(AtomicUsize::new(0));
             let stop = Arc::new(AtomicBool::new(false));
             let request_count = requests.clone();
             let stop_signal = stop.clone();
+            let worker_server = server.clone();
             let thread = thread::spawn(move || {
                 while !stop_signal.load(Ordering::Relaxed) {
-                    match listener.accept() {
-                        Ok((mut stream, _)) => {
-                            stream
-                                .set_read_timeout(Some(Duration::from_secs(2)))
-                                .unwrap();
-                            let mut request = BufReader::new(stream.try_clone().unwrap());
-                            let mut line = Vec::new();
-                            loop {
-                                line.clear();
-                                match request.read_until(b'\n', &mut line) {
-                                    Ok(0) | Err(_) => break,
-                                    Ok(_) if line == b"\r\n" || line == b"\n" => break,
-                                    Ok(_) => {}
-                                }
-                            }
+                    match worker_server.recv_timeout(Duration::from_millis(20)) {
+                        Ok(Some(request)) => {
                             let index = request_count.fetch_add(1, Ordering::SeqCst);
                             let (status, body, advertised) = responses
                                 .get(index)
                                 .or_else(|| responses.last())
                                 .expect("at least one response");
-                            let reason = if *status == 200 { "OK" } else { "Error" };
                             let length = advertised.unwrap_or(body.len());
-                            let headers = format!(
-                                "HTTP/1.0 {status} {reason}\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n"
+                            let response = tiny_http::Response::new(
+                                tiny_http::StatusCode(*status),
+                                Vec::new(),
+                                Cursor::new(body.clone()),
+                                Some(length),
+                                None,
                             );
-                            let _ = stream.write_all(headers.as_bytes());
-                            let _ = stream.write_all(body);
-                            let _ = stream.flush();
-                            let _ = stream.shutdown(Shutdown::Write);
+                            let _ = request.respond(response);
                         }
-                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            thread::sleep(Duration::from_millis(2));
-                        }
+                        Ok(None) => {}
                         Err(_) => break,
                     }
                 }
@@ -594,6 +579,7 @@ mod tests {
                 url,
                 requests,
                 stop,
+                server,
                 thread: Some(thread),
             }
         }
@@ -602,6 +588,7 @@ mod tests {
     impl Drop for TestServer {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Relaxed);
+            self.server.unblock();
             if let Some(thread) = self.thread.take() {
                 thread.join().unwrap();
             }
