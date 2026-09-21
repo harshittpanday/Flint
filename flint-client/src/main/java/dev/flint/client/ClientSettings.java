@@ -25,6 +25,7 @@ public final class ClientSettings {
     public int menuKey = 344;
     public boolean reducedMotion;
     public Map<String, Boolean> modules = defaults();
+    public Map<String, HudPosition> hudPositions = new LinkedHashMap<>();
 
     public boolean enabled(String id) {
         return Boolean.TRUE.equals(modules.get(id));
@@ -37,6 +38,15 @@ public final class ClientSettings {
 
     public void setMenuKey(int key) {
         menuKey = key;
+        save();
+    }
+
+    public HudPosition hudPosition(String id, int index) {
+        return hudPositions.computeIfAbsent(id, ignored -> new HudPosition(0.02f, 0.03f + index * 0.055f));
+    }
+
+    public void setHudPosition(String id, float x, float y) {
+        hudPositions.put(id, new HudPosition(clamp(x), clamp(y)));
         save();
     }
 
@@ -59,6 +69,7 @@ public final class ClientSettings {
                 return new ClientSettings();
             }
             if (loaded.modules == null) loaded.modules = defaults();
+            if (loaded.hudPositions == null) loaded.hudPositions = new LinkedHashMap<>();
             defaults().forEach(loaded.modules::putIfAbsent);
             if (loaded.menuKey < 32 || loaded.menuKey > 348) loaded.menuKey = 344;
             return loaded;
@@ -101,7 +112,35 @@ public final class ClientSettings {
         values.put("keystrokes", false);
         values.put("reach", false);
         values.put("armor", false);
+        values.put("effects", false);
+        values.put("cps", false);
+        values.put("combo", false);
         values.put("fullbright", false);
+        values.put("zoom", false);
+        values.put("freelook", false);
+        values.put("time_changer", false);
+        values.put("weather_changer", false);
+        values.put("custom_hand", false);
+        values.put("projectile_trails", false);
+        values.put("player_particles", false);
+        values.put("toggle_sprint", false);
+        values.put("auto_gg", false);
         return values;
+    }
+
+    private static float clamp(float value) {
+        return Math.max(0.0f, Math.min(0.95f, value));
+    }
+
+    public static final class HudPosition {
+        public float x;
+        public float y;
+
+        public HudPosition() {}
+
+        HudPosition(float x, float y) {
+            this.x = x;
+            this.y = y;
+        }
     }
 }

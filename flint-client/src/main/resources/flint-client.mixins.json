@@ -4,10 +4,14 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "AbstractClientPlayerEntityMixin",
+    "CameraMixin",
     "ClientPlayNetworkHandlerMixin",
+    "GameRendererMixin",
+    "HeldItemRendererMixin",
     "InGameHudMixin",
     "KeyboardMixin",
-    "MinecraftClientMixin"
+    "MinecraftClientMixin",
+    "MouseMixin"
   ],
   "injectors": {
     "defaultRequire": 1
