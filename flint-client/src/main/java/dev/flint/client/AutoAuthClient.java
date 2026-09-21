@@ -14,6 +14,7 @@ import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 public final class AutoAuthClient {
     private static final Logger LOGGER = LoggerFactory.getLogger("Flint AutoAuth");
@@ -21,8 +22,9 @@ public final class AutoAuthClient {
     private static final String ENDPOINT = System.getenv("FLINT_AUTOAUTH_ENDPOINT");
     private static final String TOKEN = System.getenv("FLINT_AUTOAUTH_TOKEN");
     private static final AutoAuthStateMachine STATE = new AutoAuthStateMachine();
-    private static final int READY_TICKS = 40;
+    private static final int READY_TICKS = 60;
     private static int readyTicks;
+    private static String sessionId;
 
     private AutoAuthClient() {
     }
@@ -30,6 +32,7 @@ public final class AutoAuthClient {
     public static void beginConnection() {
         STATE.beginConnection();
         readyTicks = 0;
+        sessionId = UUID.randomUUID().toString();
         if (ENDPOINT != null && TOKEN != null) {
             LOGGER.debug("AutoAuth: configured; waiting for client readiness");
         }
@@ -54,7 +57,11 @@ public final class AutoAuthClient {
         }
         STATE.markAttempted();
         LOGGER.debug("AutoAuth: bridge available; authentication requested");
-        Thread worker = new Thread(() -> requestCommand(client, handler, server), "Flint-AutoAuth");
+        String connectionSession = sessionId;
+        Thread worker = new Thread(
+                () -> requestCommand(client, handler, server, connectionSession),
+                "Flint-AutoAuth"
+        );
         worker.setDaemon(true);
         worker.start();
     }
@@ -62,7 +69,8 @@ public final class AutoAuthClient {
     private static void requestCommand(
             MinecraftClient client,
             ClientPlayNetworkHandler handler,
-            String server
+            String server,
+            String connectionSession
     ) {
         BridgeResponse response = null;
         try {
@@ -75,7 +83,7 @@ public final class AutoAuthClient {
                 socket.connect(new InetSocketAddress("127.0.0.1", port), 1500);
                 socket.setSoTimeout(2000);
                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
-                writer.write(GSON.toJson(new BridgeRequest(TOKEN, server)));
+                writer.write(GSON.toJson(new BridgeRequest(TOKEN, server, connectionSession)));
                 writer.newLine();
                 writer.flush();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -91,8 +99,9 @@ public final class AutoAuthClient {
                     && result.command != null
                     && !result.command.isBlank()) {
                 handler.sendChatCommand(result.command);
+                LOGGER.debug("AutoAuth: command dispatched [REDACTED]");
                 STATE.complete();
-                LOGGER.debug("AutoAuth: authentication completed");
+                LOGGER.debug("AutoAuth: session completed");
             } else {
                 STATE.complete();
                 LOGGER.debug("AutoAuth: authentication failed safely");
@@ -100,7 +109,7 @@ public final class AutoAuthClient {
         });
     }
 
-    private record BridgeRequest(String token, String server) {
+    private record BridgeRequest(String token, String server, String sessionId) {
     }
 
     private static final class BridgeResponse {

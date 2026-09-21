@@ -78,9 +78,11 @@ pub struct AutoAuthInput {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct BridgeRequest {
     token: String,
     server: String,
+    session_id: String,
 }
 
 #[derive(Serialize)]
@@ -329,7 +331,11 @@ where
         return rejected("server_not_configured");
     };
     tracing::debug!("AutoAuth: server matched");
-    if !claim_attempt(attempted, &rule.id) {
+    let Ok(session_id) = Uuid::parse_str(&request.session_id) else {
+        tracing::debug!("AutoAuth: authentication failed (invalid session)");
+        return rejected("request_rejected");
+    };
+    if !claim_attempt(attempted, &rule.id, &session_id) {
         tracing::debug!("AutoAuth: authentication failed (replay blocked)");
         return rejected("already_attempted");
     }
@@ -362,8 +368,8 @@ fn rejected(error: &'static str) -> BridgeResponse {
     }
 }
 
-fn claim_attempt(attempted: &mut HashSet<String>, rule_id: &str) -> bool {
-    attempted.insert(rule_id.to_owned())
+fn claim_attempt(attempted: &mut HashSet<String>, rule_id: &str, session_id: &Uuid) -> bool {
+    attempted.insert(format!("{rule_id}:{session_id}"))
 }
 
 fn credential(reference: &str) -> Result<keyring::Entry> {
@@ -517,8 +523,11 @@ mod tests {
     #[test]
     fn one_command_is_allowed_per_rule() {
         let mut attempts = HashSet::new();
-        assert!(claim_attempt(&mut attempts, "rule"));
-        assert!(!claim_attempt(&mut attempts, "rule"));
+        let first = Uuid::new_v4();
+        let reconnect = Uuid::new_v4();
+        assert!(claim_attempt(&mut attempts, "rule", &first));
+        assert!(!claim_attempt(&mut attempts, "rule", &first));
+        assert!(claim_attempt(&mut attempts, "rule", &reconnect));
     }
 
     #[test]
@@ -548,10 +557,12 @@ mod tests {
     fn bridge_selects_configured_mode_and_blocks_replay() {
         let rules = vec![test_rule(AutoAuthMode::Register)];
         let mut attempts = HashSet::new();
+        let session_id = Uuid::new_v4().to_string();
         let response = resolve_request(
             BridgeRequest {
                 token: "token".into(),
                 server: "PLAY.EXAMPLE.NET:25565".into(),
+                session_id: session_id.clone(),
             },
             "token",
             &rules,
@@ -566,6 +577,7 @@ mod tests {
             BridgeRequest {
                 token: "token".into(),
                 server: "play.example.net".into(),
+                session_id,
             },
             "token",
             &rules,
@@ -582,6 +594,7 @@ mod tests {
             BridgeRequest {
                 token: "token".into(),
                 server: "play.example.net".into(),
+                session_id: Uuid::new_v4().to_string(),
             },
             "token",
             &[test_rule(AutoAuthMode::Login)],
