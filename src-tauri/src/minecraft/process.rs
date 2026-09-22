@@ -10,7 +10,10 @@ use crate::{
     LauncherState,
 };
 use std::{
-    fs::OpenOptions,
+    collections::HashSet,
+    ffi::OsString,
+    fs::{self, OpenOptions},
+    path::Path,
     process::Stdio,
     sync::{atomic::Ordering, Arc},
 };
@@ -28,6 +31,8 @@ pub fn launch(
 ) -> Result<()> {
     let game_dir = paths.instance_game(&profile.id);
     std::fs::create_dir_all(&game_dir)?;
+    let crash_dir = game_dir.join("crash-reports");
+    let existing_crashes = crash_report_names(&crash_dir);
     let game_log = OpenOptions::new()
         .create(true)
         .append(true)
@@ -75,12 +80,12 @@ pub fn launch(
             Ok(status) if status.success() => {
                 emit(&app, "finished", "Minecraft exited normally.", None)
             }
-            Ok(status) => emit(
-                &app,
-                "failed",
-                format!("Minecraft exited with status {status}. Check minecraft.log for details."),
-                None,
-            ),
+            Ok(status) => {
+                let message = new_crash_summary(&crash_dir, &existing_crashes).unwrap_or_else(|| {
+                    format!("Minecraft exited with status {status}. Check minecraft.log for details.")
+                });
+                emit(&app, "failed", message, None);
+            }
             Err(error) => emit(
                 &app,
                 "failed",
@@ -94,4 +99,65 @@ pub fn launch(
         state.busy.store(false, Ordering::Release);
     });
     Ok(())
+}
+
+fn crash_report_names(dir: &Path) -> HashSet<OsString> {
+    fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
+        .collect()
+}
+
+fn new_crash_summary(dir: &Path, existing: &HashSet<OsString>) -> Option<String> {
+    let report = fs::read_dir(dir)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| !existing.contains(&entry.file_name()))
+        .filter_map(|entry| Some((entry.metadata().ok()?.modified().ok()?, entry.path())))
+        .max_by_key(|(modified, _)| *modified)?
+        .1;
+    let contents = fs::read_to_string(&report).ok()?;
+    let description = contents
+        .lines()
+        .find_map(|line| line.strip_prefix("Description: "))
+        .unwrap_or("Unexpected error");
+    let exception = contents
+        .lines()
+        .find(|line| line.starts_with("java.") || line.starts_with("org."))
+        .and_then(|line| line.split([':', ' ']).next())
+        .and_then(|name| name.rsplit('.').next())
+        .unwrap_or("Unknown exception");
+    let filename = report.file_name()?.to_string_lossy();
+    Some(format!(
+        "Minecraft crashed: {description} ({exception}). See crash-reports/{filename} and minecraft.log."
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reports_new_crash_cause_without_reusing_an_old_report() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("crash-reports");
+        fs::create_dir(&dir).unwrap();
+        fs::write(
+            dir.join("old.txt"),
+            "Description: Old error\njava.lang.OldException: stale",
+        )
+        .unwrap();
+        let before = crash_report_names(&dir);
+        assert!(new_crash_summary(&dir, &before).is_none());
+        fs::write(
+            dir.join("crash-new-client.txt"),
+            "---- Minecraft Crash Report ----\nDescription: Unexpected error\n\njava.lang.NullPointerException: missing sound\n",
+        )
+        .unwrap();
+        assert_eq!(
+            new_crash_summary(&dir, &before).unwrap(),
+            "Minecraft crashed: Unexpected error (NullPointerException). See crash-reports/crash-new-client.txt and minecraft.log."
+        );
+    }
 }

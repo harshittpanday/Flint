@@ -47,8 +47,14 @@ tasks.register('testClientSettings', JavaExec) {
     mainClass = 'dev.flint.client.ClientSettingsTest'
 }
 
+tasks.register('testSoundVisualizerCapture', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.flint.client.SoundVisualizerCaptureTest'
+}
+
 tasks.named('test') {
     failOnNoDiscoveredTests = false
 }
 
-check.dependsOn testAutoAuthStateMachine, testClientSettings
+check.dependsOn testAutoAuthStateMachine, testClientSettings, testSoundVisualizerCapture
