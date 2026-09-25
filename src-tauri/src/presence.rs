@@ -1,7 +1,7 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 
 const JOIN_DISCORD_URL: &str = "https://discord.gg/atWfHfwjYy";
-const DOWNLOAD_FLINT_URL: &str = "https://github.com/harshittpanday/Flint/releases/latest";
+const DOWNLOAD_FLINT_URL: &str = "https://flintlauncher.vercel.app";
 const DISCORD_APPLICATION_ID: &str = "1547183366091051019";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -138,7 +138,7 @@ mod tests {
     fn public_presence_actions_use_official_destinations() {
         assert_eq!(
             DOWNLOAD_FLINT_URL,
-            "https://github.com/harshittpanday/Flint/releases/latest"
+            "https://flintlauncher.vercel.app"
         );
         assert_eq!(JOIN_DISCORD_URL, "https://discord.gg/atWfHfwjYy");
     }
